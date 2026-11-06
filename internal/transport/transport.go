@@ -135,7 +135,7 @@ func MuxDir() (string, error) {
 }
 
 func (s SSH) Args() ([]string, error) {
-	args := []string{"-o", "SendEnv=GIT_PROTOCOL", "-o", "BatchMode=yes"}
+	args := []string{"-o", "SendEnv=GIT_PROTOCOL", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10"}
 	// Always set ControlPath explicitly: a user-configured ControlMaster that
 	// was started without SendEnv=GIT_PROTOCOL silently drops the variable
 	// and the server falls back to protocol v0.

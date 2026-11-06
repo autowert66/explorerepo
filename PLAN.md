@@ -280,7 +280,16 @@ All tests must run offline with `go test ./...` using `LocalTransport`.
 6. **M5** `pull`, `refs`, `log`, `git` shim, README (install, usage, agent system-prompt snippet), live smoke test.
 
 ## 11. Out of scope for v1 (note in README)
-SHA-256 repos; protocol v0 servers; HTTP(S) transport; Git LFS content (pointer files are shown as-is — mention in help); path-limited `log`; background daemon; FUSE/NFS mount; writing/pushing anything.
+SHA-256 repos; protocol v0 servers; Git LFS content (pointer files are shown as-is — mention in help); path-limited `log`; background daemon; FUSE/NFS mount; writing/pushing anything.
+
+## 11.1 Added after v1: anonymous HTTPS fallback
+`internal/transport/http.go` implements Git smart HTTP v2 as a stateless RPC (one POST per
+flush-terminated command), and `internal/transport/fallback.go` tries ssh first and retries the same
+host over anonymous HTTPS when a session cannot be established. It stays API-free and needs no
+credentials; anonymous HTTPS reads public repositories only. The object cache key is
+transport-independent, so ssh and HTTPS share it. `--https` forces HTTPS, `--no-https` disables the
+fallback, and a once-a-day stderr hint (suppressed by `$EXPLOREREPO_QUIET` and `--no-cache`) suggests
+setting up a key.
 
 ## 12. Notes for the implementer
 - When an exact behavior of git/upload-pack is uncertain, check it empirically against local `git-upload-pack` (`GIT_TRACE_PACKET=1` helps) rather than guessing, and record surprises in `docs/PROBES.md`.

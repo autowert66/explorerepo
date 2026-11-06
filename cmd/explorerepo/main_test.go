@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/autowert66/explorerepo/internal/repospec"
 	"github.com/autowert66/explorerepo/internal/testutil"
 )
 
@@ -142,5 +143,42 @@ func TestDebugCommands(t *testing.T) {
 	out, _, code = exec(t, "", "--repo", f.Bare, "debug", "fetch", f.Commit2.String(), "--filter", "tree:0", "--deepen", "1")
 	if code != 0 || !strings.Contains(out, f.Commit2.String()+" commit") || !strings.Contains(out, "# 1 objects") {
 		t.Errorf("fetch: %d\n%s", code, out)
+	}
+}
+
+func TestFallbackNoteOncePerDay(t *testing.T) {
+	t.Setenv("EXPLOREREPO_CACHE", t.TempDir())
+	t.Setenv("EXPLOREREPO_QUIET", "")
+	spec, err := repospec.Parse("github.com/octocat/Hello-World")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var buf bytes.Buffer
+	note := fallbackNote(spec, false, &buf)
+	if note == nil {
+		t.Fatal("expected a note callback")
+	}
+	note()
+	if !strings.Contains(buf.String(), "anonymous HTTPS") || !strings.Contains(buf.String(), "github.com") {
+		t.Fatalf("note = %q", buf.String())
+	}
+	buf.Reset()
+	note()
+	if buf.Len() != 0 {
+		t.Fatalf("note repeated within a day: %q", buf.String())
+	}
+}
+
+func TestFallbackNoteSuppressed(t *testing.T) {
+	spec, err := repospec.Parse("github.com/octocat/Hello-World")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fallbackNote(spec, true, &bytes.Buffer{}) != nil {
+		t.Fatal("--no-cache should suppress the note")
+	}
+	t.Setenv("EXPLOREREPO_QUIET", "1")
+	if fallbackNote(spec, false, &bytes.Buffer{}) != nil {
+		t.Fatal("EXPLOREREPO_QUIET should suppress the note")
 	}
 }

@@ -2,9 +2,10 @@
 
 explorerepo lets an AI agent inspect a remote git repository without cloning it and without the
 GitHub API. It is one Go binary that speaks Git protocol v2 to `git-upload-pack` over your own SSH
-(`git@github.com`), fetches only the objects a command needs, and exposes one commit as a read-only
-virtual filesystem inside an embedded POSIX shell. An agent can then run
-`find ... | xargs grep ... | head` the same way it would on a local checkout.
+(`git@github.com`) and falls back to anonymous HTTPS when ssh is unusable, fetches only the objects a
+command needs, and exposes one commit as a read-only virtual filesystem inside an embedded POSIX
+shell. An agent can then run `find ... | xargs grep ... | head` the same way it would on a local
+checkout.
 
 ```sh
 explorerepo --repo octocat/Hello-World -c 'ls -la; head -20 README'
@@ -16,7 +17,8 @@ explorerepo --repo torvalds/linux pull drivers/gpu/drm/i915 ./i915
 ## Requirements
 
 - To build: Go 1.27.3, the version pinned in `go.mod`.
-- To reach a remote host: the system `ssh`, with a key that can reach the host.
+- To reach a remote host: the system `ssh` with a key that can reach the host, or nothing at all
+  for a public repository — explorerepo falls back to anonymous HTTPS when ssh is unavailable.
 - For local repositories and the test suite: `git`.
 
 Built and tested on macOS (arm64) with Go 1.27.3 and git 2.56.0. The protocol probes recorded in
@@ -57,9 +59,9 @@ explorerepo --repo SPEC [--rev REV] [options] CMD [ARGS...]     # single builtin
 explorerepo --repo SPEC [--rev REV] [options] < script.sh
 explorerepo help [CMD]
 
-options: --rev (alias --hash)  --refresh  --no-cache  --no-mux
+options: --rev (alias --hash)  --refresh  --no-cache  --no-mux  --https  --no-https
          --max-output BYTES (200K)  --max-fetch BYTES (256M)  --max-files N (20000)  --timeout DUR (60s)
-env:     EXPLOREREPO_REPO (default --repo)  EXPLOREREPO_CACHE  EXPLOREREPO_DEBUG=1
+env:     EXPLOREREPO_REPO (default --repo)  EXPLOREREPO_CACHE  EXPLOREREPO_DEBUG=1  EXPLOREREPO_QUIET
 ```
 
 `SPEC` accepts `owner/repo` (GitHub), `github.com/owner/repo`, `gitlab.com/group/sub/repo`,
@@ -68,15 +70,24 @@ URL), `git@host:path.git`, `ssh://user@host[:port]/path`, `file:///abs/path`, or
 `--rev` accepts a branch, tag (annotated tags are peeled), a `refs/...` name, or a full 40-hex
 OID; abbreviated OIDs are rejected. The byte flags accept `K`, `M`, and `G` suffixes.
 
-Gists are ordinary git repositories, so everything below works on them unchanged. Two things to
-know: gists live on the separate host `gist.github.com`, so a `Host github.com` block in
-`~/.ssh/config` (keys, identity files) does not apply — add a matching `Host gist.github.com`
-stanza if you rely on one — and, because the HTTP transport is out of scope, a gist needs an SSH
-key GitHub accepts. Public gists are readable with any valid key; secret gists only with a key
-that has access.
+Gists are ordinary git repositories, so everything below works on them unchanged. One thing to know:
+gists live on the separate host `gist.github.com`, so a `Host github.com` block in `~/.ssh/config`
+(keys, identity files) does not apply — add a matching `Host gist.github.com` stanza if you rely on
+one. A public gist is also readable over the anonymous HTTPS fallback; a secret gist needs an SSH
+key (or a token) that has access.
 
 There is no config file. `--repo` (or `EXPLOREREPO_REPO`) is the only required setting; everything
 else has the default shown above.
+
+### Transports
+
+SSH is tried first. If a session cannot be established — no key, port 22 blocked, `ssh` not
+installed — explorerepo retries the same host over anonymous HTTPS (Git smart HTTP v2, still no
+GitHub API). The object cache is shared between the two, so nothing is re-fetched once a key is set
+up. Anonymous HTTPS reads **public** repositories only; private ones need ssh. When the fallback is
+used, a hint is printed to stderr at most once per day (recorded in the cache dir); suppress it with
+`EXPLOREREPO_QUIET`, or skip the fallback entirely with `--no-https`. `--https` forces HTTPS.
+`--no-cache` also suppresses the note, since there is nowhere to record the timestamp.
 
 The exit status is the script's. Setup errors (auth, repository not found, bad revision) print
 `explorerepo: ...` and exit 128. A missing `--repo` exits 2 (usage error). An unknown command exits

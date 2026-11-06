@@ -11,6 +11,7 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -57,16 +58,18 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	fl.SetOutput(stderr)
 	fl.Usage = func() { fmt.Fprint(stderr, usage) }
 	var (
-		repoArg   = fl.String("repo", os.Getenv("EXPLOREREPO_REPO"), "repository")
-		rev       = fl.String("rev", "", "revision")
-		script    = fl.String("c", "", "script")
-		refresh   = fl.Bool("refresh", false, "ignore cached refs")
-		noCache   = fl.Bool("no-cache", false, "memory-only cache")
-		noMux     = fl.Bool("no-mux", false, "disable ssh ControlMaster")
-		maxOutput = byteSize(200 << 10)
-		maxFetch  = byteSize(256 << 20)
-		maxFiles  = fl.Int("max-files", 20000, "max files per content scan")
-		timeout   = fl.Duration("timeout", 60*time.Second, "overall timeout")
+		repoArg    = fl.String("repo", os.Getenv("EXPLOREREPO_REPO"), "repository")
+		rev        = fl.String("rev", "", "revision")
+		script     = fl.String("c", "", "script")
+		refresh    = fl.Bool("refresh", false, "ignore cached refs")
+		noCache    = fl.Bool("no-cache", false, "memory-only cache")
+		noMux      = fl.Bool("no-mux", false, "disable ssh ControlMaster")
+		forceHTTPS = fl.Bool("https", false, "use anonymous HTTPS instead of ssh")
+		noHTTPS    = fl.Bool("no-https", false, "never fall back to HTTPS when ssh fails")
+		maxOutput  = byteSize(200 << 10)
+		maxFetch   = byteSize(256 << 20)
+		maxFiles   = fl.Int("max-files", 20000, "max files per content scan")
+		timeout    = fl.Duration("timeout", 60*time.Second, "overall timeout")
 	)
 	fl.StringVar(rev, "hash", "", "alias for --rev")
 	fl.Var(&maxOutput, "max-output", "max stdout bytes")
@@ -96,13 +99,11 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	if err != nil {
 		return fail("%v", err)
 	}
-
-	var tr transport.Transport
-	if spec.Local {
-		tr = transport.Local{Path: spec.Path}
-	} else {
-		tr = transport.SSH{User: spec.User, Host: spec.Host, Port: spec.Port, Path: spec.Path, NoMux: *noMux}
+	if *forceHTTPS && *noHTTPS {
+		fmt.Fprintln(stderr, "explorerepo: --https and --no-https are mutually exclusive")
+		return 2
 	}
+
 	dir := ""
 	if !*noCache {
 		if dir, err = store.DefaultDir(); err != nil {
@@ -116,6 +117,24 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	var logf func(string, ...any)
 	if os.Getenv("EXPLOREREPO_DEBUG") != "" {
 		logf = func(f string, a ...any) { fmt.Fprintf(stderr, "[debug] "+f+"\n", a...) }
+	}
+
+	var tr transport.Transport
+	switch {
+	case spec.Local:
+		tr = transport.Local{Path: spec.Path}
+	case *forceHTTPS:
+		tr = httpTransport(spec)
+	default:
+		ssh := transport.SSH{User: spec.User, Host: spec.Host, Port: spec.Port, Path: spec.Path, NoMux: *noMux}
+		if *noHTTPS {
+			tr = ssh
+		} else {
+			tr = transport.Fallback{
+				Primary: ssh, Secondary: httpTransport(spec),
+				OnFallback: fallbackNote(spec, *noCache, stderr), Logf: logf,
+			}
+		}
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
@@ -180,6 +199,41 @@ func isTerminal(r io.Reader) bool {
 	}
 	st, err := f.Stat()
 	return err == nil && st.Mode()&os.ModeCharDevice != 0
+}
+
+const httpsNote = "explorerepo: note: ssh to %s failed, using anonymous HTTPS (public repositories only, rate-limited);\n" +
+	"            set up an ssh key for private repositories and the best experience. This note appears once a day.\n"
+
+// httpTransport builds the anonymous HTTPS transport for a spec. An ssh port in
+// the spec (ssh://host:2222/...) is not an HTTPS port, so the default is used.
+func httpTransport(spec *repospec.Spec) transport.HTTP {
+	return transport.HTTP{Host: spec.Host, Path: spec.Path}
+}
+
+// fallbackNote returns a callback that prints the HTTPS-fallback hint to w at
+// most once per day. It stays silent under --no-cache (nowhere to record the
+// timestamp) and $EXPLOREREPO_QUIET.
+func fallbackNote(spec *repospec.Spec, noCache bool, w io.Writer) func() {
+	if noCache || os.Getenv("EXPLOREREPO_QUIET") != "" {
+		return nil
+	}
+	return func() {
+		dir, err := store.DefaultDir()
+		if err != nil {
+			return
+		}
+		path := filepath.Join(dir, "https-fallback-note")
+		if b, err := os.ReadFile(path); err == nil {
+			if t, err := time.Parse(time.RFC3339, strings.TrimSpace(string(b))); err == nil && time.Since(t) < 24*time.Hour {
+				return
+			}
+		}
+		fmt.Fprintf(w, httpsNote, spec.Host)
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return
+		}
+		_ = os.WriteFile(path, []byte(time.Now().Format(time.RFC3339)), 0o600)
+	}
 }
 
 func debugCmd(ctx context.Context, tr transport.Transport, args []string, stdout, stderr io.Writer) int {
@@ -261,8 +315,8 @@ const usage = `usage: explorerepo --repo SPEC [--rev REV] [options] -c 'SCRIPT'
        explorerepo --repo SPEC [--rev REV] [options] < script.sh
        explorerepo help [CMD]
 
-options: --rev (alias --hash)  --refresh  --no-cache  --no-mux
+options: --rev (alias --hash)  --refresh  --no-cache  --no-mux  --https  --no-https
          --max-output BYTES (200K)  --max-fetch BYTES (256M)
          --max-files N (20000)  --timeout DUR (60s)
-env:     EXPLOREREPO_REPO  EXPLOREREPO_CACHE  EXPLOREREPO_DEBUG=1
+env:     EXPLOREREPO_REPO  EXPLOREREPO_CACHE  EXPLOREREPO_DEBUG=1  EXPLOREREPO_QUIET
 `
