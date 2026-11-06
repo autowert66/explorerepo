@@ -128,6 +128,10 @@ func TestBasicScripts(t *testing.T) {
 		{"printf 'a\\na\\nb\\n' | uniq -c", "      2 a\n      1 b\n", 0},
 		{"printf 'a b\\n' | xargs -n1 echo", "a\nb\n", 0},
 		{"printf 'a\\nb\\n' | xargs -I{} echo x{}y", "xay\nxby\n", 0},
+		{"printf 'a b\\n' | xargs -n1 printf '[%s]\\n'", "[a]\n[b]\n", 0},
+		{"printf 'a\\nb\\n' | xargs printf '%s|'", "a|b|", 0},
+		{"echo hello | xargs printf '%s-%s\\n' x", "x-hello\n", 0},
+		{"find a -name a.txt -exec printf '<%s>\\n' {} \\;", "<a/a.txt>\n", 0},
 		{"echo a b c | tee /dev/null", "a b c\n", 0},
 	}
 	for _, c := range cases {

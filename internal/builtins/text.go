@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 )
 
 func init() {
@@ -25,6 +26,7 @@ func init() {
 	register("dirname", "strip last path component", dirnameCmd)
 	register("tee", "copy stdin to stdout (files are read-only)", teeCmd)
 	register("echo", "print arguments (for xargs/find -exec)", echoCmd)
+	register("printf", "format and print arguments (for xargs/find -exec)", printfCmd)
 }
 
 // readInputs returns the lines of all named inputs (stdin when none).
@@ -718,4 +720,409 @@ func echoCmd(ctx context.Context, env *Env, args []string) int {
 		env.Stdout.WriteString("\n")
 	}
 	return ExitOK
+}
+
+// ---- printf ----
+
+// printfConv is one parsed conversion (everything after '%').
+type printfConv struct {
+	verb      byte
+	flags     string
+	width     int // -1 = unset
+	prec      int // -1 = unset
+	widthStar bool
+	precStar  bool
+}
+
+// printfSeg is either literal text or a single conversion.
+type printfSeg struct {
+	literal string
+	conv    *printfConv
+}
+
+// parsePrintfFormat splits a format into literal and conversion segments,
+// decoding escapes in the literals. stop reports a \c escape, after which the
+// rest of the format (and the output) is dropped.
+func parsePrintfFormat(format string) (segs []printfSeg, stop bool) {
+	var lit strings.Builder
+	flush := func() {
+		if lit.Len() > 0 {
+			segs = append(segs, printfSeg{literal: lit.String()})
+			lit.Reset()
+		}
+	}
+	for i := 0; i < len(format); {
+		switch format[i] {
+		case '\\':
+			out, n, halt := decodeEscape(format[i:])
+			if halt {
+				flush()
+				return segs, true
+			}
+			lit.WriteString(out)
+			i += n
+		case '%':
+			if conv, n, ok := parsePrintfConv(format[i:]); ok {
+				flush()
+				segs = append(segs, printfSeg{conv: conv})
+				i += n
+				continue
+			}
+			lit.WriteByte('%')
+			i++
+		default:
+			lit.WriteByte(format[i])
+			i++
+		}
+	}
+	flush()
+	return segs, false
+}
+
+// parsePrintfConv parses "%[flags][width][.prec]verb"; n is the bytes consumed.
+func parsePrintfConv(s string) (*printfConv, int, bool) {
+	c := &printfConv{width: -1, prec: -1}
+	i := 1
+	for i < len(s) && strings.IndexByte("-+ #0", s[i]) >= 0 {
+		c.flags += string(s[i])
+		i++
+	}
+	if i < len(s) && s[i] == '*' {
+		c.widthStar = true
+		i++
+	} else {
+		for i < len(s) && s[i] >= '0' && s[i] <= '9' {
+			if c.width < 0 {
+				c.width = 0
+			}
+			c.width = c.width*10 + int(s[i]-'0')
+			i++
+		}
+	}
+	if i < len(s) && s[i] == '.' {
+		i++
+		if i < len(s) && s[i] == '*' {
+			c.precStar = true
+			i++
+		} else {
+			c.prec = 0
+			for i < len(s) && s[i] >= '0' && s[i] <= '9' {
+				c.prec = c.prec*10 + int(s[i]-'0')
+				i++
+			}
+		}
+	}
+	if i >= len(s) {
+		return nil, 0, false
+	}
+	c.verb = s[i]
+	i++
+	if !strings.ContainsRune("diouxXeEfFgGaAcsbq%", rune(c.verb)) {
+		return nil, 0, false
+	}
+	return c, i, true
+}
+
+// decodeEscape decodes one backslash escape at the start of s (s[0] == '\\').
+// It returns the decoded text, the bytes consumed, and whether \c asked to
+// stop all further output.
+func decodeEscape(s string) (string, int, bool) {
+	if len(s) < 2 {
+		return "\\", 1, false
+	}
+	switch c := s[1]; c {
+	case '\\', '\'', '"', '?':
+		return string(c), 2, false
+	case 'a':
+		return "\a", 2, false
+	case 'b':
+		return "\b", 2, false
+	case 'c':
+		return "", 2, true
+	case 'e', 'E':
+		return "\x1b", 2, false
+	case 'f':
+		return "\f", 2, false
+	case 'n':
+		return "\n", 2, false
+	case 'r':
+		return "\r", 2, false
+	case 't':
+		return "\t", 2, false
+	case 'v':
+		return "\v", 2, false
+	case '0', '1', '2', '3', '4', '5', '6', '7':
+		j, val := 1, 0
+		for j < len(s) && j <= 3 && s[j] >= '0' && s[j] <= '7' {
+			val = val*8 + int(s[j]-'0')
+			j++
+		}
+		return string([]byte{byte(val)}), j, false
+	case 'x', 'u', 'U':
+		max := 2
+		switch c {
+		case 'u':
+			max = 4
+		case 'U':
+			max = 8
+		}
+		j, val, n := 2, 0, 0
+		for j < len(s) && n < max && isHex(s[j]) {
+			val = val*16 + hexVal(s[j])
+			j++
+			n++
+		}
+		if n == 0 {
+			return "\\" + string(c), 2, false
+		}
+		if c == 'x' {
+			return string([]byte{byte(val)}), j, false
+		}
+		return string(rune(val)), j, false
+	default:
+		return "\\" + string(c), 2, false
+	}
+}
+
+func isHex(c byte) bool {
+	return c >= '0' && c <= '9' || c >= 'a' && c <= 'f' || c >= 'A' && c <= 'F'
+}
+
+func hexVal(c byte) int {
+	switch {
+	case c >= '0' && c <= '9':
+		return int(c - '0')
+	case c >= 'a' && c <= 'f':
+		return int(c-'a') + 10
+	default:
+		return int(c-'A') + 10
+	}
+}
+
+// expandPrintfEscapes decodes the escapes of a %b argument; stop reports \c.
+func expandPrintfEscapes(s string) (string, bool) {
+	var b strings.Builder
+	for i := 0; i < len(s); {
+		if s[i] != '\\' {
+			b.WriteByte(s[i])
+			i++
+			continue
+		}
+		out, n, stop := decodeEscape(s[i:])
+		b.WriteString(out)
+		i += n
+		if stop {
+			return b.String(), true
+		}
+	}
+	return b.String(), false
+}
+
+func printfCmd(ctx context.Context, env *Env, args []string) int {
+	if len(args) > 0 && args[0] == "--" {
+		args = args[1:]
+	}
+	if len(args) == 0 {
+		return env.usage("printf", "usage: printf FORMAT [ARGUMENTS...]")
+	}
+	segs, stop := parsePrintfFormat(args[0])
+	rest := args[1:]
+	ai := 0
+	next := func() string {
+		if ai < len(rest) {
+			s := rest[ai]
+			ai++
+			return s
+		}
+		return ""
+	}
+	consumes := false
+	for _, seg := range segs {
+		if seg.conv != nil {
+			consumes = true
+			break
+		}
+	}
+	status := ExitOK
+	for {
+		for _, seg := range segs {
+			if seg.conv == nil {
+				env.Stdout.WriteString(seg.literal)
+				continue
+			}
+			if !printfEmit(env, seg.conv, next, &status) {
+				return status
+			}
+			if env.Stdout.Err() != nil {
+				return ExitSigPipe
+			}
+		}
+		// coreutils reuses the format while arguments remain.
+		if stop || !consumes || ai >= len(rest) {
+			break
+		}
+	}
+	return status
+}
+
+// printfEmit formats one conversion, pulling its argument(s) via next. It
+// returns false when a %b argument contained \c (stop all output).
+func printfEmit(env *Env, c *printfConv, next func() string, status *int) bool {
+	if c.verb == '%' {
+		env.Stdout.WriteString("%")
+		return true
+	}
+	conv := *c
+	if conv.widthStar {
+		w := printfAtoi(next())
+		if w < 0 {
+			w = -w
+			if !strings.ContainsRune(conv.flags, '-') {
+				conv.flags = "-" + conv.flags
+			}
+		}
+		conv.width = w
+	}
+	if conv.precStar {
+		if p := printfAtoi(next()); p < 0 {
+			conv.prec = -1
+		} else {
+			conv.prec = p
+		}
+	}
+	arg := next()
+	switch conv.verb {
+	case 'b':
+		s, stop := expandPrintfEscapes(arg)
+		printfPad(env, &conv, s)
+		return !stop
+	case 'q':
+		printfPad(env, &conv, shellQuote(arg))
+	case 's':
+		printfPad(env, &conv, arg)
+	case 'c':
+		s := ""
+		if arg != "" {
+			r, _ := utf8.DecodeRuneInString(arg)
+			s = string(r)
+		}
+		printfPad(env, &conv, s)
+	case 'd', 'i', 'o', 'u', 'x', 'X':
+		n, ok := printfInt(arg)
+		if !ok {
+			env.Errf("printf", "%s: expected a numeric value", arg)
+			*status = ExitFail
+		}
+		verb, farg := conv.verb, any(n)
+		switch verb {
+		case 'i':
+			verb = 'd'
+		case 'u':
+			verb, farg = 'd', uint64(n)
+		case 'o', 'x', 'X':
+			farg = uint64(n)
+		}
+		fmt.Fprintf(env.Stdout, printfNumFormat(&conv, verb), farg)
+	case 'e', 'E', 'f', 'F', 'g', 'G':
+		f, ok := printfFloat(arg)
+		if !ok {
+			env.Errf("printf", "%s: expected a numeric value", arg)
+			*status = ExitFail
+		}
+		fmt.Fprintf(env.Stdout, printfNumFormat(&conv, conv.verb), f)
+	case 'a', 'A':
+		env.Errf("printf", "%%%c: unsupported conversion", conv.verb)
+		*status = ExitFail
+	}
+	return true
+}
+
+// printfPad applies precision (in bytes, like coreutils) and width to a string.
+func printfPad(env *Env, c *printfConv, s string) {
+	if c.prec >= 0 && len(s) > c.prec {
+		s = s[:c.prec]
+	}
+	if c.width <= len(s) {
+		env.Stdout.WriteString(s)
+		return
+	}
+	pad := strings.Repeat(" ", c.width-len(s))
+	if strings.IndexByte(c.flags, '-') >= 0 {
+		env.Stdout.WriteString(s + pad)
+		return
+	}
+	env.Stdout.WriteString(pad + s)
+}
+
+// printfNumFormat rebuilds a Go format verb for a numeric conversion.
+func printfNumFormat(c *printfConv, verb byte) string {
+	var b strings.Builder
+	b.WriteByte('%')
+	b.WriteString(c.flags)
+	if c.width >= 0 {
+		b.WriteString(strconv.Itoa(c.width))
+	}
+	if c.prec >= 0 {
+		b.WriteByte('.')
+		b.WriteString(strconv.Itoa(c.prec))
+	}
+	b.WriteByte(verb)
+	return b.String()
+}
+
+func printfInt(s string) (int64, bool) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return 0, true
+	}
+	if s[0] == '\'' || s[0] == '"' { // character constant, e.g. "'A"
+		r, _, _, err := strconv.UnquoteChar(s[1:], 0)
+		if err != nil {
+			return 0, false
+		}
+		return int64(r), true
+	}
+	if n, err := strconv.ParseInt(s, 0, 64); err == nil {
+		return n, true
+	}
+	if u, err := strconv.ParseUint(s, 0, 64); err == nil {
+		return int64(u), true
+	}
+	return 0, false
+}
+
+func printfFloat(s string) (float64, bool) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return 0, true
+	}
+	f, err := strconv.ParseFloat(s, 64)
+	if err != nil {
+		return 0, false
+	}
+	return f, true
+}
+
+func printfAtoi(s string) int {
+	n, _ := strconv.Atoi(strings.TrimSpace(s))
+	return n
+}
+
+// shellQuote renders s so it can be reused as a shell word (%q).
+func shellQuote(s string) string {
+	if s == "" {
+		return "''"
+	}
+	safe := true
+	for _, r := range s {
+		if !(r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' ||
+			strings.ContainsRune("@%+=:,./-_", r)) {
+			safe = false
+			break
+		}
+	}
+	if safe {
+		return s
+	}
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }

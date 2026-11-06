@@ -1,6 +1,8 @@
 package builtins
 
 import (
+	"bytes"
+	"context"
 	"reflect"
 	"regexp"
 	"strings"
@@ -196,6 +198,50 @@ func TestInsideDest(t *testing.T) {
 	for _, c := range cases {
 		if got := insideDest(c.rel, c.target); got != c.want {
 			t.Errorf("insideDest(%q,%q) = %v", c.rel, c.target, got)
+		}
+	}
+}
+
+func TestPrintf(t *testing.T) {
+	cases := []struct {
+		args []string
+		out  string
+		err  string
+		code int
+	}{
+		{[]string{"%s\n", "a"}, "a\n", "", 0},
+		{[]string{"%s-%s\n", "a", "b", "c", "d"}, "a-b\nc-d\n", "", 0},
+		{[]string{"%d/%s\n", "3", "x"}, "3/x\n", "", 0},
+		{[]string{"%05d|\n", "42"}, "00042|\n", "", 0},
+		{[]string{"%-4d|\n", "7"}, "7   |\n", "", 0},
+		{[]string{"%x %X %o %u\n", "255", "255", "8", "5"}, "ff FF 10 5\n", "", 0},
+		{[]string{"%#x\n", "255"}, "0xff\n", "", 0},
+		{[]string{"%.3s\n", "abcdef"}, "abc\n", "", 0},
+		{[]string{"%8.3f\n", "3.14159"}, "   3.142\n", "", 0},
+		{[]string{"%e\n", "1234.5"}, "1.234500e+03\n", "", 0},
+		{[]string{"%b!\n", `a\tb`}, "a\tb!\n", "", 0},
+		{[]string{"%b", `x\cy`}, "x", "", 0},
+		{[]string{`a\tb\n`}, "a\tb\n", "", 0},
+		{[]string{`\101\x42\u00e9\n`}, "ABé\n", "", 0},
+		{[]string{"%%\n"}, "%\n", "", 0},
+		{[]string{"%q\n", "a b"}, "'a b'\n", "", 0},
+		{[]string{"%c\n", "hello"}, "h\n", "", 0},
+		{[]string{"%5s|\n", "ab"}, "   ab|\n", "", 0},
+		{[]string{"%*d\n", "4", "5"}, "   5\n", "", 0},
+		{[]string{"%d\n", "'A"}, "65\n", "", 0},
+		{[]string{"%d\n", "abc"}, "0\n", "printf: abc: expected a numeric value\n", 1},
+		{[]string{"%d\n"}, "0\n", "", 0},
+		{[]string{"x\\cy"}, "x", "", 0},
+		{[]string{}, "", "printf: usage: printf FORMAT [ARGUMENTS...]\n", 2},
+	}
+	for _, c := range cases {
+		var out, errb bytes.Buffer
+		env := &Env{Stdin: strings.NewReader(""), Stdout: NewOut(&out), Stderr: &errb, Cfg: &Config{}}
+		code := printfCmd(context.Background(), env, c.args)
+		env.Stdout.Flush()
+		if out.String() != c.out || errb.String() != c.err || code != c.code {
+			t.Errorf("printf %v = (%q, %q, %d), want (%q, %q, %d)",
+				c.args, out.String(), errb.String(), code, c.out, c.err, c.code)
 		}
 	}
 }
