@@ -63,9 +63,17 @@ env:     EXPLOREREPO_REPO (default --repo)  EXPLOREREPO_CACHE  EXPLOREREPO_DEBUG
 ```
 
 `SPEC` accepts `owner/repo` (GitHub), `github.com/owner/repo`, `gitlab.com/group/sub/repo`,
-`git@host:path.git`, `ssh://user@host[:port]/path`, `file:///abs/path`, or a local path. `--rev`
-accepts a branch, tag (annotated tags are peeled), a `refs/...` name, or a full 40-hex OID;
-abbreviated OIDs are rejected. The byte flags accept `K`, `M`, and `G` suffixes.
+a gist (`gist:<id>`, `gist.github.com/<id>`, or a pasted `https://gist.github.com/<user>/<id>`
+URL), `git@host:path.git`, `ssh://user@host[:port]/path`, `file:///abs/path`, or a local path.
+`--rev` accepts a branch, tag (annotated tags are peeled), a `refs/...` name, or a full 40-hex
+OID; abbreviated OIDs are rejected. The byte flags accept `K`, `M`, and `G` suffixes.
+
+Gists are ordinary git repositories, so everything below works on them unchanged. Two things to
+know: gists live on the separate host `gist.github.com`, so a `Host github.com` block in
+`~/.ssh/config` (keys, identity files) does not apply — add a matching `Host gist.github.com`
+stanza if you rely on one — and, because the HTTP transport is out of scope, a gist needs an SSH
+key GitHub accepts. Public gists are readable with any valid key; secret gists only with a key
+that has access.
 
 There is no config file. `--repo` (or `EXPLOREREPO_REPO`) is the only required setting; everything
 else has the default shown above.
@@ -124,7 +132,8 @@ You can inspect the remote repo ORG/REPO without cloning it by running:
 It is a read-only shell (ls, cat, head, tail, sed -n, wc, find, tree, grep, rg, sort, uniq, cut, tr,
 xargs, git log/show/ls-tree, pipes, loops, globs). Directory listings are cheap; recursive grep/find
 fetch every file under the path, so narrow with a path, --include or -g. Run `explorerepo help` for
-the exact flag list. To work on a subtree with real tools:
+the exact flag list. A GitHub gist works the same way: `--repo gist:<id>` (or the gist URL). To work
+on a subtree with real tools:
   explorerepo --repo ORG/REPO pull PATH ./dest
 ```
 

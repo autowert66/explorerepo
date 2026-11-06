@@ -114,7 +114,7 @@ Keep packages small with clear interfaces; each gets `_test.go`.
 ## 5. Core layer details
 
 ### 5.1 repospec
-Accept: `owner/repo` (→ `git@github.com:owner/repo.git`), `github.com/owner/repo`, `gitlab.com/group/sub/repo`, `git@host:path(.git)`, `ssh://user@host[:port]/path`, and `file:///abs/path` or an existing local path (→ local transport; useful for tests and local bare repos). Strip trailing `.git`/`/`, re-add `.git` for SSH. Shell-quote the path in the remote command (single quotes; reject paths containing `'` or control chars).
+Accept: `owner/repo` (→ `git@github.com:owner/repo.git`), `github.com/owner/repo`, `gitlab.com/group/sub/repo`, a gist (`gist:<id>`, `gist.github.com/<id>`, or a pasted `https://gist.github.com/<user>/<id>` URL → `git@gist.github.com:<id>.git`), `git@host:path(.git)`, `ssh://user@host[:port]/path`, and `file:///abs/path` or an existing local path (→ local transport; useful for tests and local bare repos). Strip trailing `.git`/`/`, re-add `.git` for SSH. Gist ids are hex; a gist URL's username segment and `#fragment` are UI-only and dropped. Shell-quote the path in the remote command (single quotes; reject paths containing `'` or control chars).
 
 ### 5.2 transport
 ```go

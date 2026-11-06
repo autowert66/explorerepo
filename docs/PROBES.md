@@ -6,7 +6,8 @@ Results of probing `git-upload-pack` protocol v2 before building on it. Reproduc
 `EXPLOREREPO_LIVE=1 go test ./internal/protocol -run Live -v` and
 `explorerepo --repo SPEC debug caps|lsrefs|fetch`.
 
-Probed: GitHub (`agent=git/github-f6e509caf74d-Linux`, 2026-11-06) and local git 2.56.0.
+Probed: GitHub and GitHub gists (`gist.github.com`, same `agent=git/github-f6e509caf74d-Linux`,
+2026-11-06) and local git 2.56.0.
 
 ## Summary of surprises (read this first)
 
@@ -16,6 +17,7 @@ Probed: GitHub (`agent=git/github-f6e509caf74d-Linux`, 2026-11-06) and local git
 | B | `deepen 1` + `filter tree:1` on a commit returns commit + root tree in one request | **GitHub rejects it**: `ERR tree filter allows max depth 0, but got 1`. Only `tree:0` (and `blob:*`) are allowed. Local git accepts `tree:1`. | Portable path: commit via `deepen 1` + `tree:0` (commit only), root tree via a second `tree:0` request. One extra round trip on a cold start; when the first walk is recursive, the root tree arrives inside the `blob:none` subtree prefetch instead. |
 | C | `want <tree>` + `filter tree:1` returns just that tree | Wrong on local git 2.56 (and consistent with the depth rule): an explicitly wanted tree counts as depth -1, so `tree:1` also returns its children (6 trees + 7 blobs for the fixture root). **`tree:0` returns exactly that one tree** on both GitHub and local. | Single-tree fetches use `tree:0`. |
 | D | `object-info` may be advertised | **Not advertised by GitHub** (and not by default locally). | `ls -l` prints `?` for sizes of blobs that are not cached yet; sizes appear after the content has been read once. `object-info` is used automatically if a server advertises it. |
+| E | Gists need a separate code path | **They don't.** `gist.github.com` advertises the *same* v2 caps as `github.com` (`fetch=shallow wait-for-done filter`, `server-option`, no `object-info`), and `git -c protocol.version=2 fetch --depth=1 --filter=tree:0 git@gist.github.com:<id>.git <oid>` returns shallow-info + a commit-only packfile. Default branch is `main` on new gists, `master` on old ones; `HEAD` resolves either. | `repospec` normalizes `gist:<id>` and gist URLs to `git@gist.github.com:<id>.git`; transport, filters and lazy fetch are untouched. `gist.github.com` is a **separate ssh host**, so `Host github.com` ssh config does not apply. |
 
 ## Probes
 
