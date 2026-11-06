@@ -30,35 +30,43 @@ jobs:
           fetch-depth: 0 # the toolchain stamps the tag as the version (explorerepo --version)
       - uses: actions/setup-go@v6
         with:
-          go-version-file: go.mod
+          go-version: stable # ship with the latest security fixes; go.mod is only the minimum
+      # Build outside the checkout: any untracked file there makes the
+      # toolchain stamp the version as "$TAG+dirty".
       - name: build
         env:
           TAG: ${{ github.ref_name }}
         run: |
           set -eu
-          mkdir dist
+          dist=$RUNNER_TEMP/dist
+          mkdir "$dist"
           for target in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 windows/arm64; do
             os=${target%/*} arch=${target#*/}
             name=explorerepo_${TAG}_${os}_${arch}
             exe=explorerepo; [ "$os" = windows ] && exe=explorerepo.exe
-            mkdir "dist/$name"
-            CGO_ENABLED=0 GOOS=$os GOARCH=$arch go build -trimpath -ldflags='-s -w' -o "dist/$name/$exe" ./cmd/explorerepo
-            cp README.md "dist/$name/"
-            if [ "$os" = windows ]; then
-              (cd dist && zip -qr "$name.zip" "$name")
-            else
-              tar -C dist -czf "dist/$name.tar.gz" "$name"
+            mkdir "$dist/$name"
+            CGO_ENABLED=0 GOOS=$os GOARCH=$arch go build -trimpath -ldflags='-s -w' -o "$dist/$name/$exe" ./cmd/explorerepo
+            stamp=$(go version -m "$dist/$name/$exe" | awk '$1 == "mod" { print $3 }')
+            if [ "$stamp" != "$TAG" ]; then
+              echo "::error::$name is stamped '$stamp', want '$TAG'"
+              exit 1
             fi
-            rm -r "dist/$name"
+            cp README.md "$dist/$name/"
+            if [ "$os" = windows ]; then
+              (cd "$dist" && zip -qr "$name.zip" "$name")
+            else
+              tar -C "$dist" -czf "$dist/$name.tar.gz" "$name"
+            fi
+            rm -r "$dist/$name"
           done
-          (cd dist && sha256sum * > checksums.txt)
-      - name: check version stamp
+          (cd "$dist" && sha256sum * > checksums.txt)
+      - name: check version
         env:
           TAG: ${{ github.ref_name }}
         run: |
-          tar -xzOf dist/explorerepo_${TAG}_linux_amd64.tar.gz explorerepo_${TAG}_linux_amd64/explorerepo > /tmp/explorerepo
-          chmod +x /tmp/explorerepo
-          /tmp/explorerepo --version | tee /dev/stderr | grep -qF "explorerepo $TAG "
+          tar -xzOf "$RUNNER_TEMP/dist/explorerepo_${TAG}_linux_amd64.tar.gz" "explorerepo_${TAG}_linux_amd64/explorerepo" > "$RUNNER_TEMP/explorerepo"
+          chmod +x "$RUNNER_TEMP/explorerepo"
+          "$RUNNER_TEMP/explorerepo" --version | tee /dev/stderr | grep -qF "explorerepo $TAG ("
       # Releases are immutable: publishing locks the tag and assets, so upload
       # everything to a draft first and publish only once it is complete.
       - name: publish
@@ -66,12 +74,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
         run: |
-          gh release create "$TAG" dist/* --draft --title "$TAG" --generate-notes --verify-tag
+          gh release create "$TAG" "$RUNNER_TEMP"/dist/* --draft --title "$TAG" --generate-notes --verify-tag
           gh release edit "$TAG" --draft=false
+      # GitHub writes the release attestation shortly after publishing.
       - name: verify attestation
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
         run: |
-          gh release verify "$TAG"
-          for f in dist/*; do gh release verify-asset "$TAG" "$f"; done
+          for i in $(seq 12); do gh release verify "$TAG" && break; [ "$i" = 12 ] && exit 1; sleep 10; done
+          for f in "$RUNNER_TEMP"/dist/*; do gh release verify-asset "$TAG" "$f"; done
