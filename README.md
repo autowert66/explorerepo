@@ -69,7 +69,7 @@ explorerepo --repo SPEC [--rev REV] [options] < script.sh
 explorerepo help [CMD | repos | agents | about]
 explorerepo --version
 
-options: --rev (alias --hash)  --refresh  --no-cache  --no-mux  --https  --no-https
+options: --rev (alias --hash)  --refresh  --no-cache  --no-mux  --https  --no-https  --check
          --max-output BYTES (200K)  --max-fetch BYTES (256M)  --max-files N (20000)  --timeout DUR (60s)
 env:     EXPLOREREPO_REPO (default --repo)  EXPLOREREPO_CACHE  EXPLOREREPO_DEBUG=1  EXPLOREREPO_QUIET
 ```
@@ -81,6 +81,24 @@ URL), `https://host/owner/repo`, `git@host:path.git`, `ssh://user@host[:port]/pa
 Tested hosts: GitHub and gists, GitLab, Bitbucket, Codeberg/Forgejo/Gitea, and googlesource.com; any
 server speaking Git protocol v2 with filtered fetch works. Servers without filter support (git.sr.ht,
 git.kernel.org, savannah) are refused with an error. `explorerepo help repos` prints all of this.
+To test another host, run `explorerepo --repo SPEC --check`: it tries ssh and HTTPS separately,
+without the cache or the fallback, and reports each step (connect with protocol v2 and filter
+support, refs, commit, one tree, a subtree in one request, a blob) and a verdict:
+
+```
+https  https://go.googlesource.com/go.git
+  ok   connect  protocol v2, filter supported, agent JGit/4-google (540ms)
+  ok   refs     HEAD -> b34e3416c8f3c2c1d9ddd6a45f9b17612bac7505 (363ms)
+  ok   commit   fetched with deepen 1, filter tree:0 (797ms)
+  ok   tree     root tree (16 entries), filter tree:1 (1.287s)
+  ok   subtree  .github/ in one request, filter blob:none, 524 pack bytes (599ms)
+  ok   blob     .gitattributes, 639 bytes (977ms)
+
+verdict: works over https (public repositories only); ssh failed, so private repositories on go.googlesource.com need a working ssh key
+```
+
+It exits 0 when at least one transport works and 128 otherwise. `--https` or `--no-https` limits it
+to one transport.
 `--rev` accepts a branch, tag (annotated tags are peeled), a `refs/...` name, or a full 40-hex
 OID; abbreviated OIDs are rejected. The byte flags accept `K`, `M`, and `G` suffixes.
 

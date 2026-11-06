@@ -71,6 +71,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		maxFiles   = fl.Int("max-files", 20000, "max files per content scan")
 		timeout    = fl.Duration("timeout", 60*time.Second, "overall timeout")
 		version    = fl.Bool("version", false, "print the version")
+		check      = fl.Bool("check", false, "check each transport against the repository")
 	)
 	fl.StringVar(rev, "hash", "", "alias for --rev")
 	fl.Var(&maxOutput, "max-output", "max stdout bytes")
@@ -109,6 +110,10 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	if *forceHTTPS && *noHTTPS {
 		fmt.Fprintln(stderr, "explorerepo: --https and --no-https are mutually exclusive")
 		return 2
+	}
+
+	if *check {
+		return checkCmd(context.Background(), spec, *rev, checkTransports(spec, *forceHTTPS, *noHTTPS, *noMux), *timeout, stdout)
 	}
 
 	dir := ""
@@ -206,6 +211,26 @@ func isTerminal(r io.Reader) bool {
 	}
 	st, err := f.Stat()
 	return err == nil && st.Mode()&os.ModeCharDevice != 0
+}
+
+// checkTransports lists the transports --check tries, in the order a normal
+// run would, honouring --https and --no-https.
+func checkTransports(spec *repospec.Spec, forceHTTPS, noHTTPS, noMux bool) []namedTransport {
+	if spec.Local {
+		return []namedTransport{{"local", spec.Path, transport.Local{Path: spec.Path}}}
+	}
+	var out []namedTransport
+	if !forceHTTPS {
+		u := fmt.Sprintf("%s@%s:%s", spec.User, spec.Host, strings.TrimPrefix(spec.Path, "/"))
+		if spec.Port != 0 {
+			u = fmt.Sprintf("ssh://%s@%s:%d/%s", spec.User, spec.Host, spec.Port, strings.TrimPrefix(spec.Path, "/"))
+		}
+		out = append(out, namedTransport{"ssh", u, transport.SSH{User: spec.User, Host: spec.Host, Port: spec.Port, Path: spec.Path, NoMux: noMux}})
+	}
+	if !noHTTPS {
+		out = append(out, namedTransport{"https", "https://" + spec.Host + "/" + strings.TrimPrefix(spec.Path, "/"), httpTransport(spec)})
+	}
+	return out
 }
 
 const httpsNote = "explorerepo: note: ssh to %s failed, using anonymous HTTPS (public repositories only, rate-limited);\n" +
@@ -327,6 +352,7 @@ SPEC:    owner/repo (GitHub), gitlab.com/group/repo, gist:ID, any https:// ssh:/
 options: --rev (alias --hash)  --refresh  --no-cache  --no-mux  --https  --no-https
          --max-output BYTES (200K)  --max-fetch BYTES (256M)
          --max-files N (20000)  --timeout DUR (60s)  --version
+         --check   test ssh and HTTPS against SPEC step by step (does my host work?)
 env:     EXPLOREREPO_REPO  EXPLOREREPO_CACHE  EXPLOREREPO_DEBUG=1  EXPLOREREPO_QUIET
 
 more:    explorerepo help          shell commands and their flags

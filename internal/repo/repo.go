@@ -434,6 +434,15 @@ func (r *Repo) Trees(ctx context.Context, oids []object.OID) error {
 	return r.fetchTrees(ctx, missing)
 }
 
+// TreeFilter is the filter used to fetch a single tree: tree:0, or tree:1 once
+// the server has been found to omit wanted trees under tree:0.
+func (r *Repo) TreeFilter() string {
+	if r.tree1.Load() {
+		return "tree:1"
+	}
+	return "tree:0"
+}
+
 var errNotReturned = errors.New("server did not return object")
 
 // fetchTrees fetches just the given trees, without their subtrees or blobs.

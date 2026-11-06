@@ -220,3 +220,17 @@ func TestFallbackNoteSuppressed(t *testing.T) {
 		t.Fatal("EXPLOREREPO_QUIET should suppress the note")
 	}
 }
+
+func TestCheck(t *testing.T) {
+	f := testutil.NewFixture(t)
+	out, _, code := exec(t, "", "--repo", f.Bare, "--check")
+	for _, want := range []string{"ok   connect", "ok   tree", "ok   subtree", "ok   blob", "verdict: works over local"} {
+		if code != 0 || !strings.Contains(out, want) {
+			t.Errorf("--check: %d, missing %q in\n%s", code, want, out)
+		}
+	}
+	out, _, code = exec(t, "", "--repo", "/does/not/exist", "--check")
+	if code != 128 || !strings.Contains(out, "FAIL connect") || !strings.Contains(out, "cannot read") {
+		t.Errorf("--check on a missing repo: %d\n%s", code, out)
+	}
+}

@@ -64,6 +64,7 @@ Hosts
   Works: GitHub and gists, GitLab, Bitbucket, Codeberg/Forgejo/Gitea, googlesource.com, and any
   server speaking Git protocol v2 with filtered fetch (git upload-pack, uploadpack.allowFilter).
   Refused (no filtered fetch): git.sr.ht, git.kernel.org, savannah. Protocol v0-only servers fail.
+  To test your own host: explorerepo --repo SPEC --check (each transport, step by step).
 
 Access
   ssh is tried first (your ~/.ssh/config, keys and agent). If it cannot connect, anonymous HTTPS

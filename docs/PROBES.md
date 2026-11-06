@@ -73,3 +73,4 @@ ssh key and known_hosts entry, so the others went through the anonymous HTTPS fa
 | git.kernel.org, git.savannah.gnu.org | connects, then refuses | git http-backend: no `# service=` packet; no filter support |
 
 Hosts without `filter` in the fetch capability cannot be explored lazily; explorerepo says so and exits 128.
+`explorerepo --repo SPEC --check` reruns these steps per transport against any host.
