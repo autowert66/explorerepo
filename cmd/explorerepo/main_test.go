@@ -60,7 +60,7 @@ func TestExitCodes(t *testing.T) {
 		code int
 		err  string
 	}{
-		{[]string{}, 128, "--repo is required"},
+		{[]string{}, 2, "--repo is required"},
 		{[]string{"--repo", f.Bare, "--rev", "nope", "ls"}, 128, `unknown revision "nope"`},
 		{[]string{"--repo", f.Bare, "--rev", f.Commit1.String()[:10], "ls"}, 128, "use a full 40-character OID"},
 		{[]string{"--repo", "/does/not/exist", "ls"}, 128, "does not appear to be a git repository"},

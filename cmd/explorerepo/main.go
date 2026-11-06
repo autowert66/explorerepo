@@ -90,7 +90,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	if *repoArg == "" {
 		fail("--repo is required (or set EXPLOREREPO_REPO)")
 		fmt.Fprint(stderr, usage)
-		return exitSetup
+		return 2 // usage error, not a setup error
 	}
 	spec, err := repospec.Parse(*repoArg)
 	if err != nil {

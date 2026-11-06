@@ -252,7 +252,7 @@ options: --rev (alias --hash)  --refresh  --no-cache  --no-mux
 env:     EXPLOREREPO_REPO (default for --repo), EXPLOREREPO_CACHE, EXPLOREREPO_DEBUG=1
 ```
 - Byte flags accept `K/M/G` suffixes.
-- Exit status = script's exit status; tool/setup errors (auth, repo not found, bad rev) → stderr `explorerepo: …`, exit 128 (git convention).
+- Exit status = script's exit status; tool/setup errors (auth, repo not found, bad rev) → stderr `explorerepo: …`, exit 128 (git convention). A missing `--repo` is a usage error → exit 2.
 - `help` text is the agent's manual: ≤ ~60 lines, list commands with supported flags, the cost model in two lines ("directory listings are cheap; recursive grep fetches every file under the path — narrow with a path or --include"), and examples. Keep it exact: anything listed must work.
 
 ---

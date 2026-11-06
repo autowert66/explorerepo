@@ -71,8 +71,8 @@ There is no config file. `--repo` (or `EXPLOREREPO_REPO`) is the only required s
 else has the default shown above.
 
 The exit status is the script's. Setup errors (auth, repository not found, bad revision) print
-`explorerepo: ...` and exit 128. An unknown command exits 127, a timeout exits 124, and an
-unsupported option exits 2. Output beyond `--max-output` is cut off with a notice on stderr;
+`explorerepo: ...` and exit 128. A missing `--repo` exits 2 (usage error). An unknown command exits
+127, a timeout exits 124, and an unsupported option exits 2. Output beyond `--max-output` is cut off with a notice on stderr;
 truncation is not an error.
 
 ### Commands
