@@ -26,6 +26,12 @@ var helpDetail = map[string]string{
   (not the virtual 'cd'). Refuses to overwrite without -f, to write .git entries, or to
   follow symlinks that leave DEST. Use it, then run real tools (rg, cargo, ...) on the copy.
 `,
+	"which": `which [-a] [-s] NAME...
+  Print NAME for each command the shell provides. Every command here is a builtin, so there
+  is no path to print. Exit status is 1 if any NAME is unknown. 'type -p NAME' and
+  'command -v NAME' report the same set (bare names). Use it to check a tool exists before
+  running it; do not fall back to a worse tool because the probe printed a name, not a path.
+`,
 }
 
 const helpText = `explorerepo: a read-only shell over one commit of a remote git repo (no clone).
@@ -51,6 +57,9 @@ REPO      refs [PREFIX]                list branches/tags (HEAD, refs/heads/, re
 SHELL     pipes, && || ; $(...), for/while/if, globs (src/*.go), redirect to /dev/null, cd, pwd, echo,
           printf, test/[ ], read. Env: $REPO $REV $COMMIT. Not available: writes, background jobs,
           process substitution, real programs.
+PROBE     type NAME... | command -v NAME... | which NAME...   report the commands above as available
+          (type -p/-P, type -t, type -a, command -V, which -a also work). They print the bare name,
+          since these are builtins with no path. CMD --version and CMD --help print a stub.
 Notes     Symlinks pointing outside the repo error out; submodules are empty dirs ('not fetched');
           LFS files show as pointer text. 'ls -l' sizes are '?' when not yet downloaded.
 

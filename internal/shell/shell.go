@@ -90,6 +90,21 @@ type runner struct {
 
 // exec runs a builtin with the given stdio and returns its status.
 func (r *runner) exec(ctx context.Context, dir string, args []string, stdin io.Reader, stdout, stderr io.Writer) int {
+	if handled, status := probe(args, stdout, stderr); handled {
+		return status
+	}
+	// `CMD --version` / `CMD --help`: agents probe with these, so answer
+	// instead of failing on an unsupported option.
+	if len(args) == 2 && (args[1] == "--version" || args[1] == "--help") {
+		if e, ok := builtins.Lookup(args[0]); ok {
+			if args[1] == "--help" {
+				io.WriteString(stdout, builtins.Help([]string{e.Name}))
+			} else {
+				fmt.Fprintf(stdout, "%s (explorerepo builtin)\n", e.Name)
+			}
+			return builtins.ExitOK
+		}
+	}
 	ent, ok := builtins.Lookup(args[0])
 	if !ok || strings.Contains(args[0], "/") {
 		fmt.Fprintf(stderr, "explorerepo: %s: command not available (run 'help')\n", args[0])
@@ -273,8 +288,20 @@ func (r *runner) access(ctx context.Context, p string, mode interp.AccessMode) e
 	return nil
 }
 
-// call intercepts "cd" so failures read like coreutils errors (and name submodules).
+// call intercepts "cd" so failures read like coreutils errors (and name
+// submodules), and the availability probes "type" and "command -v" so they see
+// the builtins the shell actually provides.
 func (r *runner) call(ctx context.Context, args []string) ([]string, error) {
+	if args[0] == "type" || args[0] == "command" {
+		hc := interp.HandlerCtx(ctx)
+		if handled, status := probe(args, hc.Stdout, hc.Stderr); handled {
+			if status == builtins.ExitOK {
+				return []string{"true"}, nil
+			}
+			return []string{"false"}, nil
+		}
+		return args, nil
+	}
 	if args[0] != "cd" {
 		return args, nil
 	}

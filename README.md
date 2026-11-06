@@ -108,6 +108,11 @@ truncation is not an error.
 tee refs log git(log/show/ls-tree/rev-parse) pull help`, plus the shell's own builtins
 (`cd pwd echo printf test [ read`, loops, `$(...)`, pipes, globs, redirects to `/dev/null`).
 
+Agents that check for a tool first get a truthful answer: `type rg`, `command -v rg`, and
+`which rg` report every command above as available (they print the bare name, since these are
+builtins with no path), and `rg --version` / `rg --help` print a short stub instead of failing.
+So `type -p rg && rg ...` proceeds rather than falling back to `grep`.
+
 Run `explorerepo help` for the exact flags. An unsupported flag or command fails with exit 2 and the
 list of supported options instead of producing silently wrong output.
 
@@ -151,9 +156,11 @@ You can inspect the remote repo ORG/REPO without cloning it by running:
   explorerepo --repo ORG/REPO [--rev BRANCH_OR_TAG] -c '<shell script>'
 It is a read-only shell (ls, cat, head, tail, sed -n, wc, find, tree, grep, rg, sort, uniq, cut, tr,
 xargs, git log/show/ls-tree, pipes, loops, globs). Directory listings are cheap; recursive grep/find
-fetch every file under the path, so narrow with a path, --include or -g. Run `explorerepo help` for
-the exact flag list. A GitHub gist works the same way: `--repo gist:<id>` (or the gist URL). To work
-on a subtree with real tools:
+fetch every file under the path, so narrow with a path, --include or -g. `type`, `command -v` and
+`which` report these commands as available (they are builtins, so they print the name, not a path);
+use them instead of falling back to a worse tool. Run `explorerepo help` for the exact flag list.
+A GitHub gist works the same way: `--repo gist:<id>` (or the gist URL). To work on a subtree with
+real tools:
   explorerepo --repo ORG/REPO pull PATH ./dest
 ```
 
