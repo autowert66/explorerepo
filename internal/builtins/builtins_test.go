@@ -1,0 +1,214 @@
+package builtins
+
+import (
+	"reflect"
+	"regexp"
+	"strings"
+	"testing"
+)
+
+func TestParseOpts(t *testing.T) {
+	opts := []Opt{{Short: 'r'}, {Short: 'n'}, {Short: 'i'}, {Short: 'e', Arg: true}, {Short: 'A', Arg: true}, {Long: "include", Arg: true}, {Long: "color"}}
+	cases := []struct {
+		in   []string
+		has  []string
+		vals map[string]string
+		args []string
+	}{
+		{[]string{"-rni", "pat", "dir"}, []string{"r", "n", "i"}, nil, []string{"pat", "dir"}},
+		{[]string{"-A", "3", "pat"}, nil, map[string]string{"A": "3"}, []string{"pat"}},
+		{[]string{"-A3", "pat"}, nil, map[string]string{"A": "3"}, []string{"pat"}},
+		{[]string{"-rnA2", "pat"}, []string{"r", "n"}, map[string]string{"A": "2"}, []string{"pat"}},
+		{[]string{"--include=*.go", "pat"}, nil, map[string]string{"include": "*.go"}, []string{"pat"}},
+		{[]string{"--include", "*.go", "pat"}, nil, map[string]string{"include": "*.go"}, []string{"pat"}},
+		{[]string{"pat", "-n", "file"}, []string{"n"}, nil, []string{"pat", "file"}}, // options after operands
+		{[]string{"-e", "a", "-e", "b", "x"}, nil, map[string]string{"e": "b"}, []string{"x"}},
+		{[]string{"--", "-n", "x"}, nil, nil, []string{"-n", "x"}},
+		{[]string{"-", "x"}, nil, nil, []string{"-", "x"}}, // lone dash is an operand
+	}
+	for _, c := range cases {
+		p, err := ParseOpts(c.in, opts, "")
+		if err != nil {
+			t.Errorf("%v: %v", c.in, err)
+			continue
+		}
+		for _, k := range c.has {
+			if !p.Has(k) {
+				t.Errorf("%v: missing %s", c.in, k)
+			}
+		}
+		for k, v := range c.vals {
+			if p.Val(k) != v {
+				t.Errorf("%v: %s = %q, want %q", c.in, k, p.Val(k), v)
+			}
+		}
+		if !reflect.DeepEqual(append([]string(nil), p.Args...), append([]string(nil), c.args...)) {
+			t.Errorf("%v: args %v, want %v", c.in, p.Args, c.args)
+		}
+	}
+	if p, _ := ParseOpts([]string{"e", "-5"}, []Opt{{Short: 'n', Arg: true}}, "n"); p.Val("n") != "5" {
+		t.Error("-NUM should map to -n NUM")
+	}
+}
+
+func TestParseOptsErrors(t *testing.T) {
+	opts := []Opt{{Short: 'a'}, {Short: 'b', Arg: true}, {Long: "long"}}
+	for _, in := range [][]string{{"-z"}, {"--nope"}, {"-b"}, {"--long=1"}, {"-ab"}} {
+		if _, err := ParseOpts(in, opts, ""); err == nil {
+			t.Errorf("%v: expected error", in)
+		}
+	}
+	_, err := ParseOpts([]string{"-z"}, opts, "")
+	if err == nil || !strings.Contains(err.Error(), "unsupported option '-z' (supported: -a -b --long)") {
+		t.Errorf("message: %v", err)
+	}
+}
+
+func TestGlobMatch(t *testing.T) {
+	cases := []struct {
+		pat, s string
+		fold   bool
+		want   bool
+	}{
+		{"*.go", "main.go", false, true},
+		{"*.go", "main.go.bak", false, false},
+		{"*.go", ".hidden.go", false, true},
+		{"a?c", "abc", false, true},
+		{"a?c", "ac", false, false},
+		{"[a-c]x", "bx", false, true},
+		{"[!a-c]x", "bx", false, false},
+		{"[!a-c]x", "dx", false, true},
+		{"*", "a/b/c", false, true}, // * crosses '/'
+		{"a/*/c", "a/b/b/c", false, true},
+		{"README*", "readme.md", true, true},
+		{"README*", "readme.md", false, false},
+		{`a\*b`, "a*b", false, true},
+		{`a\*b`, "axb", false, false},
+		{"[", "[", false, true},
+		{"", "", false, true},
+		{"*a*b*", "xxaxxbxx", false, true},
+	}
+	for _, c := range cases {
+		if got := GlobMatch(c.pat, c.s, c.fold); got != c.want {
+			t.Errorf("GlobMatch(%q, %q, %v) = %v", c.pat, c.s, c.fold, got)
+		}
+	}
+}
+
+func TestBREtoERE(t *testing.T) {
+	cases := map[string]string{
+		`a\|b`:        `a|b`,
+		`\(ab\)\+`:    `(ab)+`,
+		`a+`:          `a\+`,
+		`(x)`:         `\(x\)`,
+		`a\{2,3\}`:    `a{2,3}`,
+		`a{2}`:        `a\{2\}`,
+		`\<word\>`:    `\bword\b`,
+		`[a|b]`:       `[a|b]`,
+		`[]a]+`:       `[]a]\+`,
+		`[[:alpha:]]`: `[[:alpha:]]`,
+		`a.*b`:        `a.*b`,
+		`\.`:          `\.`,
+	}
+	for in, want := range cases {
+		if got := breToERE(in); got != want {
+			t.Errorf("breToERE(%q) = %q, want %q", in, got, want)
+		}
+		if _, err := regexp.Compile(breToERE(in)); err != nil {
+			t.Errorf("breToERE(%q) does not compile: %v", in, err)
+		}
+	}
+}
+
+func TestExpandSet(t *testing.T) {
+	got, err := expandSet(`a-cx\n`)
+	if err != nil || string(got) != "abcx\n" {
+		t.Errorf("%q %v", string(got), err)
+	}
+	if got, _ := expandSet("[:digit:]"); len(got) != 10 {
+		t.Errorf("digits: %d", len(got))
+	}
+	if _, err := expandSet("z-a"); err == nil {
+		t.Error("reverse range should fail")
+	}
+	if _, err := expandSet("[:nope:]"); err == nil {
+		t.Error("unknown class should fail")
+	}
+}
+
+func TestParseListAndKey(t *testing.T) {
+	rs, err := parseList("1,3-4,6-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, want := range map[int]bool{1: true, 2: false, 3: true, 4: true, 5: false, 6: true, 99: true} {
+		if inList(rs, i) != want {
+			t.Errorf("inList(%d) != %v", i, want)
+		}
+	}
+	if _, err := parseList("0"); err == nil {
+		t.Error("0 should be invalid")
+	}
+	k, err := parseKey("2,3nr", sortSpec{})
+	if err != nil || k.start != 2 || k.end != 3 || !k.numeric || !k.reverse {
+		t.Errorf("%+v %v", k, err)
+	}
+	if got := (sortSpec{start: 2, end: 3}).extract("a b c d", ""); got != "b c" {
+		t.Errorf("extract = %q", got)
+	}
+	if got := (sortSpec{start: 2}).extract("a:b:c", ":"); got != "b:c" {
+		t.Errorf("extract = %q", got)
+	}
+}
+
+func TestSplitShellWords(t *testing.T) {
+	got, err := splitShellWords(`a "b c" 'd e'  f`)
+	if err != nil || !reflect.DeepEqual(got, []string{"a", "b c", "d e", "f"}) {
+		t.Errorf("%q %v", got, err)
+	}
+	if _, err := splitShellWords(`a "b`); err == nil {
+		t.Error("unmatched quote should fail")
+	}
+}
+
+func TestIsBinary(t *testing.T) {
+	if IsBinary([]byte("hello\n")) || !IsBinary([]byte("he\x00llo")) {
+		t.Error("binary detection wrong")
+	}
+	big := make([]byte, 9000)
+	for i := range big {
+		big[i] = 'a'
+	}
+	big[8500] = 0
+	if IsBinary(big) {
+		t.Error("NUL after the first 8000 bytes should not count")
+	}
+}
+
+func TestInsideDest(t *testing.T) {
+	cases := []struct {
+		rel, target string
+		want        bool
+	}{
+		{"a/link", "b", true}, {"a/link", "../b", true}, {"a/link", "../../b", false},
+		{"link", "../x", false}, {"link", "/etc/passwd", false}, {"a/b/link", "../../c", true},
+	}
+	for _, c := range cases {
+		if got := insideDest(c.rel, c.target); got != c.want {
+			t.Errorf("insideDest(%q,%q) = %v", c.rel, c.target, got)
+		}
+	}
+}
+
+func TestBadComponent(t *testing.T) {
+	for _, c := range []string{"", ".", "..", ".git", ".GIT", ".Git", "a/b", `a\b`, "a\x00b"} {
+		if badComponent(c) == nil {
+			t.Errorf("%q should be refused", c)
+		}
+	}
+	for _, c := range []string{"a", ".github", ".gitignore", "git"} {
+		if err := badComponent(c); err != nil {
+			t.Errorf("%q: %v", c, err)
+		}
+	}
+}
