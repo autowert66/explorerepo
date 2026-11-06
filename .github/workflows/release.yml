@@ -59,8 +59,19 @@ jobs:
           tar -xzOf dist/explorerepo_${TAG}_linux_amd64.tar.gz explorerepo_${TAG}_linux_amd64/explorerepo > /tmp/explorerepo
           chmod +x /tmp/explorerepo
           /tmp/explorerepo --version | tee /dev/stderr | grep -qF "explorerepo $TAG "
+      # Releases are immutable: publishing locks the tag and assets, so upload
+      # everything to a draft first and publish only once it is complete.
       - name: publish
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
-        run: gh release create "$TAG" dist/* --title "$TAG" --generate-notes --verify-tag
+        run: |
+          gh release create "$TAG" dist/* --draft --title "$TAG" --generate-notes --verify-tag
+          gh release edit "$TAG" --draft=false
+      - name: verify attestation
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release verify "$TAG"
+          for f in dist/*; do gh release verify-asset "$TAG" "$f"; done
