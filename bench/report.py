@@ -54,7 +54,10 @@ w(f"Measured on {' to '.join(dict.fromkeys([days[0], days[-1]]))}: {versions} he
   "each in a fresh Docker container (Debian, git, curl, ripgrep, python3). Both variants have the same tools, including "
   "web search (granted in advance) and webfetch. The only difference: **with** has the `explorerepo` binary on `PATH` and "
   "the line from `explorerepo help agents` as the global `AGENTS.md`; **without** has neither and no `AGENTS.md`. "
-  "explorerepo used anonymous HTTPS (no ssh key in the container). Harness: [`bench/`](../bench).\n")
+  "explorerepo used anonymous HTTPS (no ssh key in the container). explorerepo never clones: it fetches only the "
+  "trees and files a command reads, into a cache that starts empty in every fresh container, so each run pays for "
+  "all of its own network fetches (later calls in a run reuse what earlier ones fetched, as in normal use). "
+  "Harness: [`bench/`](../bench).\n")
 
 w("Reproduce: `bench/setup.sh` (builds the image, exports only the opencode-go credential), `REPS=3 PAR=4 "
   "python3 bench/run.py`, `python3 bench/analyze.py`, `python3 bench/report.py > docs/BENCHMARK.md`. Each container "
