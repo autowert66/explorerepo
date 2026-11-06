@@ -1,11 +1,21 @@
 # explorerepo
 
-explorerepo lets an AI agent inspect a remote git repository without cloning it and without the
-GitHub API. It is one Go binary that speaks Git protocol v2 to `git-upload-pack` over your own SSH
-(`git@github.com`) and falls back to anonymous HTTPS when ssh is unusable, fetches only the objects a
-command needs, and exposes one commit as a read-only virtual filesystem inside an embedded POSIX
-shell. An agent can then run `find ... | xargs grep ... | head` the same way it would on a local
-checkout.
+explorerepo lets an AI agent read or search a remote git repository without cloning it and without
+the GitHub API. Install one Go binary and add a line to your global `AGENTS.md` (or `CLAUDE.md`),
+and an agent that needs a single file stops cloning the whole repo. It runs `ls`, `cat`, `head`,
+`tail`, `grep`, and `find` against the remote tree, over SSH or plain HTTPS.
+
+```sh
+go install github.com/autowert66/explorerepo/cmd/explorerepo@latest
+```
+
+Add this line to `AGENTS.md` or `CLAUDE.md`:
+
+```markdown
+To read or search a remote git repo without cloning it, run `explorerepo --repo ORG/REPO -c '<ls|cat|head|tail|grep|find ...>'`; it is a read-only shell over SSH or HTTPS, and `explorerepo help` lists the commands.
+```
+
+Then agents work in place:
 
 ```sh
 explorerepo --repo octocat/Hello-World -c 'ls -la; head -20 README'
@@ -16,9 +26,10 @@ explorerepo --repo torvalds/linux pull drivers/gpu/drm/i915 ./i915
 
 ## Requirements
 
-- To build: Go 1.27.3, the version pinned in `go.mod`.
+- To install: Go 1.21 or newer. If your toolchain is older than the version in `go.mod`, `go install`
+  downloads it automatically.
 - To reach a remote host: the system `ssh` with a key that can reach the host, or nothing at all
-  for a public repository — explorerepo falls back to anonymous HTTPS when ssh is unavailable.
+  for a public repository; explorerepo falls back to anonymous HTTPS when ssh is unavailable.
 - For local repositories and the test suite: `git`.
 
 Built and tested on macOS (arm64) with Go 1.27.3 and git 2.56.0. The protocol probes recorded in
@@ -26,12 +37,8 @@ Built and tested on macOS (arm64) with Go 1.27.3 and git 2.56.0. The protocol pr
 
 ## Install
 
-```sh
-go install github.com/autowert66/explorerepo/cmd/explorerepo@latest
-```
-
-From a checkout, `make build` writes the binary to `bin/explorerepo`. `go install` places it in
-`$GOBIN` (default `$(go env GOPATH)/bin`); delete that file to uninstall.
+`go install` places the binary in `$GOBIN` (default `$(go env GOPATH)/bin`); delete that file to
+uninstall. From a checkout, `make build` writes it to `bin/explorerepo` instead.
 
 ## First run
 
@@ -66,7 +73,8 @@ env:     EXPLOREREPO_REPO (default --repo)  EXPLOREREPO_CACHE  EXPLOREREPO_DEBUG
 
 `SPEC` accepts `owner/repo` (GitHub), `github.com/owner/repo`, `gitlab.com/group/sub/repo`,
 a gist (`gist:<id>`, `gist.github.com/<id>`, or a pasted `https://gist.github.com/<user>/<id>`
-URL), `git@host:path.git`, `ssh://user@host[:port]/path`, `file:///abs/path`, or a local path.
+URL), `https://host/owner/repo`, `git@host:path.git`, `ssh://user@host[:port]/path`,
+`file:///abs/path`, or a local path.
 `--rev` accepts a branch, tag (annotated tags are peeled), a `refs/...` name, or a full 40-hex
 OID; abbreviated OIDs are rejected. The byte flags accept `K`, `M`, and `G` suffixes.
 
@@ -123,7 +131,8 @@ keeps everything in memory. To reset, delete that directory; nothing else is wri
   runs a private ControlMaster (`/tmp/explorerepo-<uid>/`) so repeated invocations reuse one
   connection. The private socket matters: a user-configured master started without
   `SendEnv=GIT_PROTOCOL` silently downgrades the session to protocol v0, so explorerepo always sets
-  its own ControlPath. `--no-mux` disables multiplexing.
+  its own ControlPath. `--no-mux` disables multiplexing. When the SSH session cannot be established,
+  the same protocol v2 runs over anonymous HTTPS smart HTTP instead; see [Transports](#transports).
 - **Laziness.** A commit is fetched with `deepen 1` and `filter tree:0`, then one tree per directory
   actually entered. Recursive commands (`find`, `grep -r`, `rg`, `tree`, `ls -R`, `pull`) fetch the
   whole subtree structure in one `blob:none` request, then the needed blobs in batches of up to 1000.
@@ -159,6 +168,7 @@ scripts/probe.sh ssh octocat/Hello-World.git
 
 ## Out of scope
 
-SHA-256 repositories; protocol v0 servers; HTTP(S) transport; Git LFS content (pointer files are
-shown as-is); path-limited `log`; a background daemon; FUSE/NFS mounts; writing or pushing anything;
-process substitution, background jobs, and real program execution inside the shell.
+SHA-256 repositories; protocol v0 servers; authenticated HTTP (the anonymous HTTPS fallback reads
+public repositories only); Git LFS content (pointer files are shown as-is); path-limited `log`; a
+background daemon; FUSE/NFS mounts; writing or pushing anything; process substitution, background
+jobs, and real program execution inside the shell.

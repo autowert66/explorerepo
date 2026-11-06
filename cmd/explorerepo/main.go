@@ -1,6 +1,6 @@
 // Command explorerepo lets an agent explore a remote git repository without
-// cloning it: Git protocol v2 over ssh, lazy filtered fetches, and an embedded
-// read-only shell over the commit's virtual tree.
+// cloning it: Git protocol v2 over ssh or anonymous HTTPS, lazy filtered
+// fetches, and an embedded read-only shell over the commit's virtual tree.
 package main
 
 import (
