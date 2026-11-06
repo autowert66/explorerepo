@@ -154,6 +154,9 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	case len(rest) > 0:
 		res = shell.RunCommand(ctx, opt, rest)
 	default:
+		if isTerminal(stdin) {
+			return fail("no command given: pass CMD [ARGS...], -c 'SCRIPT', or pipe a script on stdin (try: explorerepo --repo %s ls)", *repoArg)
+		}
 		b, err := io.ReadAll(stdin)
 		if err != nil {
 			return fail("reading script: %v", err)
@@ -167,6 +170,16 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		return 124
 	}
 	return res.Status
+}
+
+// isTerminal reports whether r is an interactive terminal (nothing to read as a script).
+func isTerminal(r io.Reader) bool {
+	f, ok := r.(*os.File)
+	if !ok {
+		return false
+	}
+	st, err := f.Stat()
+	return err == nil && st.Mode()&os.ModeCharDevice != 0
 }
 
 func debugCmd(ctx context.Context, tr transport.Transport, args []string, stdout, stderr io.Writer) int {
