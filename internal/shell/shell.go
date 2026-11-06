@@ -18,9 +18,9 @@ import (
 	"mvdan.cc/sh/v3/interp"
 	"mvdan.cc/sh/v3/syntax"
 
-	"github.com/autowert66/git-explorer/internal/builtins"
-	"github.com/autowert66/git-explorer/internal/repo"
-	"github.com/autowert66/git-explorer/internal/vfs"
+	"github.com/autowert66/explorerepo/internal/builtins"
+	"github.com/autowert66/explorerepo/internal/repo"
+	"github.com/autowert66/explorerepo/internal/vfs"
 )
 
 type Options struct {

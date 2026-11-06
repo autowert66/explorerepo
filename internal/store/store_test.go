@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/autowert66/git-explorer/internal/object"
-	"github.com/autowert66/git-explorer/internal/testutil"
+	"github.com/autowert66/explorerepo/internal/object"
+	"github.com/autowert66/explorerepo/internal/testutil"
 )
 
 func TestPutGetRoundTripAndGitCompat(t *testing.T) {

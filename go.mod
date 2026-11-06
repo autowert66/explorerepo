@@ -1,4 +1,4 @@
-module github.com/autowert66/git-explorer
+module github.com/autowert66/explorerepo
 
 go 1.27.3
 

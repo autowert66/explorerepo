@@ -16,7 +16,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/autowert66/git-explorer/internal/object"
+	"github.com/autowert66/explorerepo/internal/object"
 )
 
 type memEntry struct {

@@ -12,10 +12,10 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/autowert66/git-explorer/internal/object"
-	"github.com/autowert66/git-explorer/internal/pack"
-	"github.com/autowert66/git-explorer/internal/pktline"
-	"github.com/autowert66/git-explorer/internal/transport"
+	"github.com/autowert66/explorerepo/internal/object"
+	"github.com/autowert66/explorerepo/internal/pack"
+	"github.com/autowert66/explorerepo/internal/pktline"
+	"github.com/autowert66/explorerepo/internal/transport"
 )
 
 type Caps struct {

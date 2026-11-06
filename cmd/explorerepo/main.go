@@ -15,16 +15,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/autowert66/git-explorer/internal/builtins"
-	"github.com/autowert66/git-explorer/internal/object"
-	"github.com/autowert66/git-explorer/internal/pack"
-	"github.com/autowert66/git-explorer/internal/protocol"
-	"github.com/autowert66/git-explorer/internal/repo"
-	"github.com/autowert66/git-explorer/internal/repospec"
-	"github.com/autowert66/git-explorer/internal/shell"
-	"github.com/autowert66/git-explorer/internal/store"
-	"github.com/autowert66/git-explorer/internal/transport"
-	"github.com/autowert66/git-explorer/internal/vfs"
+	"github.com/autowert66/explorerepo/internal/builtins"
+	"github.com/autowert66/explorerepo/internal/object"
+	"github.com/autowert66/explorerepo/internal/pack"
+	"github.com/autowert66/explorerepo/internal/protocol"
+	"github.com/autowert66/explorerepo/internal/repo"
+	"github.com/autowert66/explorerepo/internal/repospec"
+	"github.com/autowert66/explorerepo/internal/shell"
+	"github.com/autowert66/explorerepo/internal/store"
+	"github.com/autowert66/explorerepo/internal/transport"
+	"github.com/autowert66/explorerepo/internal/vfs"
 )
 
 const exitSetup = 128

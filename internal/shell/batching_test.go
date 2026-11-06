@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/autowert66/git-explorer/internal/testutil"
+	"github.com/autowert66/explorerepo/internal/testutil"
 )
 
 func blobFetches(log []string) int {

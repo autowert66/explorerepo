@@ -25,7 +25,7 @@ Built and tested on macOS (arm64) with Go 1.27.3 and git 2.56.0. The protocol pr
 ## Install
 
 ```sh
-go install github.com/autowert66/git-explorer/cmd/explorerepo@latest
+go install github.com/autowert66/explorerepo/cmd/explorerepo@latest
 ```
 
 From a checkout, `make build` writes the binary to `bin/explorerepo`. `go install` places it in

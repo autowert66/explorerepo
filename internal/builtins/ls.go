@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/autowert66/git-explorer/internal/object"
-	"github.com/autowert66/git-explorer/internal/vfs"
+	"github.com/autowert66/explorerepo/internal/object"
+	"github.com/autowert66/explorerepo/internal/vfs"
 )
 
 func init() {

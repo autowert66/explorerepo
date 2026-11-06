@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/autowert66/git-explorer/internal/testutil"
+	"github.com/autowert66/explorerepo/internal/testutil"
 )
 
 func exec(t *testing.T, stdin string, args ...string) (out, errOut string, code int) {
