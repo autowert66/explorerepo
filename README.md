@@ -1,5 +1,7 @@
 # explorerepo
 
+<p align="center"><img src="docs/demo.svg" width="960" alt="explorerepo greps and reads kernel/sched/core.c in torvalds/linux in 2.0 s and 653 KB, against 33.7 s and 291 MB for git clone --depth 1"></p>
+
 explorerepo lets an AI agent read or search a remote git repository without cloning it and without
 the GitHub API. Install one Go binary and add a line to your global `AGENTS.md` (or `CLAUDE.md`),
 and an agent that needs a single file stops cloning the whole repo. It runs `ls`, `cat`, `head`,
