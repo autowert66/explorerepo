@@ -1,0 +1,4 @@
+/explorerepo
+/bin/
+*.test
+.DS_Store
