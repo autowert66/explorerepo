@@ -26,11 +26,16 @@ const Source = "https://github.com/autowert66/explorerepo"
 
 // AgentsLine is the line to add to AGENTS.md or CLAUDE.md ('help agents').
 // README.md quotes it verbatim; a test keeps the two in sync.
-const AgentsLine = "To read or search a remote git repo without cloning it, run `explorerepo --repo ORG/REPO -c '<shell script>'`; " +
-	"it is a read-only shell over SSH or HTTPS (ls, cat, head, tail, grep, find, pipes, loops, globs), so chain commands, " +
-	"e.g. `-c 'ls -A; echo --- README ---; find . -maxdepth 1 -iname \"readme*\" -print -exec head -n 20 {} \\;'`. " +
-	"`--repo` also takes gitlab.com/GROUP/REPO, gist:ID, and any git URL or local path; " +
-	"run `explorerepo help` for the flags and `explorerepo help repos` for the supported hosts."
+const AgentsLine = "To read or search the source of any remote git repo (a library, a dependency, a tool you are asked about), run `explorerepo --repo ORG/REPO -c '<script>'` in your shell (it is a CLI, not an MCP tool) instead of cloning, fetching raw GitHub URLs, `gh api`, or answering from memory; " +
+	"it is a read-only shell over the default branch (ls, tree, cat, head, sed -n, grep -A/-B/-C, rg, find, wc, sort, pipes, loops; " +
+	"no awk). " +
+	"Each call costs a network round trip, so aim for 2-3 calls: (1) orient and locate in one script, e.g. " +
+	"`-c 'tree -L 2 -d; echo \"## hits\"; grep -rn -m 30 \"KEYWORD\" src --include=\"*.rs\"'`; " +
+	"(2) read every relevant range at once, e.g. `-c 'sed -n \"40,120p\" src/a.rs; echo \"## b.rs\"; " +
+	"grep -n -A 25 \"fn name\" src/b.rs'`; then answer. " +
+	"Prefer `grep -n -A N` and `sed -n` ranges over `cat` of whole files. " +
+	"`--repo` also takes gitlab.com/GROUP/REPO, gist:ID, any git URL, and `--rev TAG`; " +
+	"`explorerepo help` lists everything."
 
 // Version reports the module version stamped by the Go toolchain: the tag or
 // pseudo-version for go install, a VCS pseudo-version for local builds.
