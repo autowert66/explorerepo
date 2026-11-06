@@ -1,0 +1,2915 @@
+{
+ "tasks": [
+  {
+   "id": "ripgrep-mmap",
+   "named": true,
+   "prompt": "In BurntSushi/ripgrep, when does ripgrep use memory maps by default? Give the exact condition from the current source, and which flags override it.",
+   "expect": "10 paths or fewer, all regular files; --mmap / --no-mmap override",
+   "checks": [
+    "\\b10\\b",
+    "(?i)file",
+    "--no-mmap"
+   ]
+  },
+  {
+   "id": "bubbletea-fps",
+   "named": true,
+   "prompt": "In charmbracelet/bubbletea, what is the renderer's default frame rate and the maximum, and what happens to out-of-range values passed to WithFPS?",
+   "expect": "default 60, max 120; <1 becomes 60, >120 is capped at 120",
+   "checks": [
+    "\\b60\\b",
+    "\\b120\\b"
+   ]
+  },
+  {
+   "id": "httpx-defaults",
+   "named": false,
+   "prompt": "What are the default timeout, connection pool limits and max redirects in the Python httpx library, according to its current source? Name the file they are defined in.",
+   "expect": "Timeout 5.0s, Limits(max_connections=100, max_keepalive_connections=20), keepalive_expiry 5.0, 20 redirects, httpx/_config.py",
+   "checks": [
+    "\\b5(\\.0)?\\b",
+    "\\b100\\b",
+    "\\b20\\b",
+    "_config\\.py"
+   ]
+  },
+  {
+   "id": "fzf-hscroll",
+   "named": true,
+   "prompt": "In junegunn/fzf, what is the default for --hscroll-off and what does fzf do if the value is negative? Cite the source file.",
+   "expect": "default 10; negative is rejected with 'hscroll offset must be a non-negative integer' (src/options.go)",
+   "checks": [
+    "\\b10\\b",
+    "(?i)non-negative|error|reject",
+    "options\\.go"
+   ]
+  },
+  {
+   "id": "bat-pager",
+   "named": true,
+   "prompt": "How does sharkdp/bat decide which pager to run? Give the order of precedence between its flags and environment variables, the default pager, and anything special it does when the pager is less.",
+   "expect": "--pager > BAT_PAGER > PAGER > less; adds -R/-F (quit-if-one-screen) etc. for less; --paging controls whether",
+   "checks": [
+    "BAT_PAGER",
+    "\\bPAGER\\b",
+    "(?i)\\bless\\b",
+    "(?i)-R|--RAW-CONTROL-CHARS|raw"
+   ]
+  },
+  {
+   "id": "zod-email",
+   "named": false,
+   "prompt": "Which regular expression does the zod TypeScript schema library use by default for z.email() in its current version? Quote the regex and name the source file.",
+   "expect": "the email regex exported from packages/zod/src/v4/core/regexes.ts",
+   "checks": [
+    "regexes\\.ts",
+    "\\[A-Za-z\\]\\{2,\\}"
+   ]
+  }
+ ],
+ "runs": [
+  {
+   "task": "bat-pager",
+   "variant": "with",
+   "rep": 0,
+   "model": "opencode-go/deepseek-v4.1-flash",
+   "opencode": "opencode v2.2.5",
+   "start_ms": 1793989523516,
+   "exit": 0,
+   "wall_s": 73.794,
+   "steps": 9,
+   "tool_calls": 14,
+   "tools": [
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo sharkdp/bat -c 'tree -L 2 src | head -60'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo sharkdp/bat -c 'ls; echo \"## grep pager\"; grep -rn \"PAGER\\|pager\" src --include=\"*.rs\" | head -80'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo sharkdp/bat -c 'cat src/less.rs'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo sharkdp/bat -c 'cat src/pager.rs'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo sharkdp/bat -c 'sed -n \"120,150p\" src/config.rs; echo \"## main 315,395\"; sed -n \"315,395p\" src/bin/bat/main.rs'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo sharkdp/bat -c 'grep -rn \"LESS\\|less\\|PagerKind\\|BatPager\\|pager\" src/output.rs src/controller.rs src/bin/bat/app.rs src/paging.rs | head -120'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo sharkdp/bat -c 'grep -rn \"less\" src --include=\"*.rs\" | grep -v \"^src/less.rs\" | head -60; echo \"## output.rs\"; sed -n \"1,140p\" src/output.rs'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo sharkdp/bat -c 'sed -n \"90,180p\" src/bin/bat/app.rs; echo \"## paging\"; sed -n \"280,310p\" src/bin/bat/app.rs'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo sharkdp/bat -c 'sed -n \"138,210p\" src/output.rs'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo sharkdp/bat -c 'grep -n \"BAT_OPTS\\|args\\|env::args\\|config_args\\|fn get_args\\|rev\\|prepend\" src/bin/bat/config.rs | head -50; echo \"##\"; sed -n \"1,60p\" src/bin/bat/config.rs; echo \"## 200,300\"; sed -n \"200,320p\" src/bin/bat/config.rs'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo sharkdp/bat -c 'grep -rn \"BAT_PAGING\\|BAT_OPTS\" src/bin/bat/*.rs src/*.rs | head -40'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo sharkdp/bat -c 'sed -n \"103,180p\" src/bin/bat/config.rs; echo \"## app build\"; grep -n -B5 -A20 \"get_args_from_config_file\\|get_args_from_env_vars\\|get_args_from_env_opts_var\" src/bin/bat/app.rs'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo sharkdp/bat -c 'cat src/wrapping.rs; echo \"## features\"; grep -n -A30 \"^\\[features\\]\" Cargo.toml'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo sharkdp/bat -c 'grep -rn \"lessopen\" .github Cargo.toml build.rs 2>/dev/null | head -20'"
+    }
+   ],
+   "tokens": {
+    "input": 18621,
+    "output": 2450,
+    "reasoning": 3053,
+    "cache_read": 131200,
+    "cache_write": 0
+   },
+   "tokens_in_total": 149821,
+   "tokens_total": 155324,
+   "cost_usd": 0.00648855,
+   "correct": true,
+   "checks": [
+    true,
+    true,
+    true,
+    true
+   ],
+   "answer": "I'll dig into bat's source to trace the pager selection logic.\n## Short answer\n\nbat resolves the pager in one small function, `get_pager()` in [`src/pager.rs`](https://github.com/sharkdp/bat/blob/master/src/pager.rs), and then applies a pile of `less`-specific fixups in `OutputType::try_pager()` ([`src/output.rs`](https://github.com/sharkdp/bat/blob/master/src/output.rs)).\n\n### Which pager, in order of precedence\n\n| Order | Source | Notes |\n|---|---|---|\n| 1 | `--pager` on the command line | Wins over everything; last occurrence wins (`overrides_with(\"pager\")`, `clap_app.rs`) |\n| 2 | `BAT_PAGER` env var | bat doesn't read this inside `get_pager` in the binary; it rewrites it to `--pager=<value>` in `get_args_from_env_vars()` before clap parses, so it beats a config-file `--pager` |\n| 3 | `--pager` in the config file (or `BAT_OPTS`) | If `BAT_OPTS` is set, the config file is ignored entirely, not merged |\n| 4 | `PAGER` env var | Generic fallback; treated as \"not bat-specific\" (see below) |\n| 5 | Default | Literally `less` |\n\nThe actual chain in `get_pager()` is:\n\n```rust\nmatch (config_pager, &bat_pager, &pager) {\n    (Some(config_pager), _, _) => (config_pager, PagerSource::Config),\n    (_, Ok(bat_pager), _)     => (bat_pager,   PagerSource::EnvVarBatPager),\n    (_, _, Ok(pager))         => (pager,       PagerSource::EnvVarPager),\n    _                         => (\"less\",      PagerSource::Default),\n}\n```\n\nNote the subtlety: because `BAT_PAGER` is injected as a `--pager` argument by `get_args_from_env_vars()`, in the real binary it arrives as `PagerSource::Config`, which is exactly what keeps it from getting the `PAGER` fixups below. `PagerSource::EnvVarBatPager` mainly matters to library users calling the API directly.\n\nThis is only *which* pager. *Whether* one runs at all is a separate decision: `--paging` / `-P` / `BAT_PAGING` (auto, never, always), plus stdin/TTY detection in `app.rs`.\n\n### Default\n\n`less`, with no arguments. bat then appends its own required flags (next section).\n\n### Special handling\n\n**Pager identity.** The binary is classified by file stem into `Less`, `More`, `Most`, `Builtin`, `Bat`, or `Unknown`. `builtin` (exactly that string) selects the internal `minus` pager instead of spawning a process. If the pager resolves to bat itself (`bat` *or* `batcat`), that's detected too.\n\n**`PAGER=more`, `PAGER=most`, `PAGER=bat`.** Because the generic `PAGER` isn't bat-aware, bat silently substitutes plain `less`:\n- `more`/`most` don't support colors,\n- `PAGER=bat` would recurse infinitely.\n\nThis substitution *only* happens for `PAGER`. `--pager=more`, `--pager=most`, `--pager=bat` (or the same via `BAT_PAGER`) are honored \u2014 and `--pager=bat`/`BAT_PAGER=bat` is a hard error: *\"Use of bat as a pager is disallowed\u2026\"*. A nonexistent pager binary is a softer failure: it prints `Pager '\u2026' not found, outputting to stdout instead` and continues.\n\n**Argument handling for `less`.** bat builds the command line in `output.rs`:\n\n- `-R` (`--RAW-CONTROL-CHARS`) is always added when bat supplies the args, so ANSI colors render correctly.\n- `-F` (`--quit-if-one-screen`) is added in auto mode.\n- `-S` (`--chop-long-lines`) is added when the user explicitly passed `--wrap=never`.\n- `-K` (`--quit-on-intr`) is added so `less` exits along with bat \u2014 except for BusyBox `less`, which doesn't support it.\n- `--no-init` is added in quit-if-one-screen mode when the detected `less` is older than 530 (older than 558 on Windows), or when the version can't be determined.\n- `LESSCHARSET=UTF-8` is set on the child process.\n- `--no-lessopen` is appended when built with the `lessopen` feature, so `less` doesn't preprocess bat's already-processed stream again.\n\n**Key asymmetry.** If the `less` came from `PAGER`, bat *discards any user arguments* and replaces them with the set above (`PAGER=\"less -F\"` becomes bat's own invocation, because a generic pager setting wasn't meant for bat). If it came from `--pager`, `BAT_PAGER`, or the config file, non-empty arguments are passed through untouched \u2014 so `--pager \"less -RF\"` keeps exactly `-RF` and gets none of `-K`, `-S`, or `--no-init`. `LESSCHARSET` and `--no-lessopen` are still applied in that case.\n\n**Version probing.** To decide about `-K` and `--no-init`, bat runs `less --version` via `grep_cli::resolve_binary` and parses the output (`src/less.rs`). It also recognizes BusyBox by a failed `--version` whose stderr contains `BusyBox`. A `less` that can't be resolved means no version, which is treated conservatively (add `--no-init`).\n\nEmpty pager string (`--pager \"\"`) parses to no command and results in no pager, i.e. plain stdout.",
+   "errors": []
+  },
+  {
+   "task": "bat-pager",
+   "variant": "with",
+   "rep": 1,
+   "model": "opencode-go/deepseek-v4.1-flash",
+   "opencode": "opencode v2.2.5",
+   "start_ms": 1793989423912,
+   "exit": 0,
+   "wall_s": 43.074,
+   "steps": 9,
+   "tool_calls": 8,
+   "tools": [
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo sharkdp/bat -c 'grep -rn \"PAGER\\|pager\" src --include=\"*.rs\" -l; echo \"## hits\"; grep -rn \"PAGER\\|pager\" src --include=\"*.rs\" | head -80'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo sharkdp/bat -c 'cat src/pager.rs; echo \"## main.rs 300-400\"; sed -n \"300,400p\" src/bin/bat/main.rs'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo sharkdp/bat -c 'grep -rn \"PagerKind::Less\\|LESS\\|less\" src --include=\"*.rs\" | grep -v \"^src/pager.rs\" | head -60; echo \"## controller 40-160\"; sed -n \"40,170p\" src/controller.rs'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo sharkdp/bat -c 'cat src/output.rs; echo \"## less.rs\"; sed -n \"1,40p\" src/less.rs; echo \"## grep LessVersion usage\"; grep -rn \"LessVersion\\|retrieve_less_version\\|pager.args\\|PagerKind\\|pager.bin\" src --include=\"*.rs\"'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo sharkdp/bat -c 'sed -n \"85,180p\" src/bin/bat/app.rs; echo \"## config.rs 115,200\"; sed -n \"115,200p\" src/bin/bat/config.rs; echo \"## clap paging 360,405\"; sed -n \"360,405p\" src/bin/bat/clap_app.rs'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo sharkdp/bat -c 'grep -n -A 30 \"fn matches\" src/bin/bat/app.rs; echo \"##\"; grep -n -A 20 \"fn cli_matches\" src/bin/bat/app.rs'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo sharkdp/bat -c 'sed -n \"228,300p\" src/bin/bat/app.rs'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo sharkdp/bat -c 'sed -n \"290,330p\" src/bin/bat/app.rs; echo \"## paging.rs\"; cat src/paging.rs 2>/dev/null | head -60'"
+    }
+   ],
+   "tokens": {
+    "input": 17688,
+    "output": 1940,
+    "reasoning": 2140,
+    "cache_read": 119040,
+    "cache_write": 0
+   },
+   "tokens_in_total": 136728,
+   "tokens_total": 140808,
+   "cost_usd": 0.00545832,
+   "correct": true,
+   "checks": [
+    true,
+    true,
+    true,
+    true
+   ],
+   "answer": "## Pager selection in `sharkdp/bat`\n\nThe decision is split in two: **whether** to page (`--paging`), then **which** command to run (`src/pager.rs`).\n\n### Which pager: precedence\n\n`get_pager()` in `src/pager.rs` resolves it in this order (first match wins):\n\n1. **`--pager` on the command line**\n2. **`BAT_PAGER`** environment variable\n3. **`--pager` from `BAT_OPTS` or the config file** (BAT_OPTS replaces the config file entirely)\n4. **`PAGER`** environment variable\n5. **`less`** \u2014 the built-in default\n\nSome nuance on 2 vs 3: `BAT_PAGER` is *also* converted into a synthetic `--pager=...` argument in `src/bin/bat/config.rs` (`get_args_from_env_vars`). Args are assembled as *config/BAT_OPTS \u2192 env vars \u2192 real CLI*, and `--pager` uses `overrides_with(\"pager\")`, so the last occurrence wins. That yields exactly the order above: CLI beats `BAT_PAGER`, which beats a config-file/BAT_OPTS `--pager`. The final chosen string is then passed into `get_pager()` as `config_pager`, which still falls back to `BAT_PAGER` then `PAGER` if it got `None`.\n\nWithin `get_pager()`:\n\n- The command string is shell-split (on Windows, a custom splitter that preserves backslashes).\n- The binary's **file stem** classifies it (`PagerKind`): `less`, `more`, `most`, `builtin`, `bat` (if it matches bat's own binary name, including `batcat`), or `Unknown`.\n- `--pager=builtin` uses bat's embedded **`minus`** pager instead of spawning a process.\n- If the pager is **bat itself**, `try_pager()` errors with `InvalidPagerValueBat` to prevent infinite recursion \u2014 **except** when it came from `PAGER`; then bat silently substitutes `less`.\n- Likewise, if `PAGER` is `more` or `most`, bat silently uses `less` instead (they don't support colors). This substitution is *not* done for `BAT_PAGER` or `--pager`.\n- If the binary can't be resolved, bat prints a warning and falls back to stdout. A malformed pager command (unclosed quote) is a parse error.\n\n### Whether to page\n\nSeparately, `--paging` / `BAT_PAGING` (`auto` default, `never`, `always`; `-P`/`--no-paging` is an alias for never) picks `PagingMode::Always`, `QuitIfOneScreen`, or `Never`. In `auto`, paging is enabled only if stdout is a terminal (for stdin input: stdout is a tty *and* stdin is not). Also, the pager is skipped entirely if none of the input files exist (`controller.rs`).\n\n### Special handling when the pager is `less`\n\nIn `OutputType::try_pager` (`src/output.rs`):\n\n- bat **overwrites the arguments** (rather than appending) if the argument list is empty **or** the pager came from `PAGER`. That is, `PAGER=\"less -F\"` loses `-F`, because bat wants to guarantee its own flags. Arguments from `--pager` or `BAT_PAGER` are respected as-is (bat only adds the env var and `--no-lessopen`).\n- Flags bat adds when it controls the args:\n  - `-R` (`--RAW-CONTROL-CHARS`) \u2014 required to render bat's ANSI color sequences.\n  - `-F` (`--quit-if-one-screen`) \u2014 when the mode is `QuitIfOneScreen`.\n  - `-S` (`--chop-long-lines`) \u2014 when wrapping is disabled (`--wrap=never`).\n  - `-K` (`--quit-on-intr`) \u2014 so less exits when bat is interrupted; skipped for BusyBox less.\n  - `--no-init` \u2014 only with quit-if-one-screen and only for old less: version unknown, GNU less `< 530`, or `< 558` on Windows. This works around a `-F` bug in older less, at the cost of mouse-wheel support.\n- It always sets **`LESSCHARSET=UTF-8`** in the child environment.\n- With the `lessopen` feature, it appends **`--no-lessopen`** so less doesn't re-run `$LESSOPEN` on input bat already preprocessed.\n- Version detection runs `less --version` and parses either `less 551` (from stdout) or `BusyBox ...` (from stderr); this drives the `-K` and `--no-init` decisions above.\n\nSo in short: `--pager` \u2192 `BAT_PAGER` \u2192 config/BAT_OPTS `--pager` \u2192 `PAGER` \u2192 `less`, with `PAGER`-sourced `more`/`most`/`bat` transparently rewritten to `less`, and a fair amount of version-aware flag injection specifically for `less`.",
+   "errors": []
+  },
+  {
+   "task": "bat-pager",
+   "variant": "with",
+   "rep": 2,
+   "model": "opencode-go/deepseek-v4.1-flash",
+   "opencode": "opencode v2.2.5",
+   "start_ms": 1793989382151,
+   "exit": 0,
+   "wall_s": 57.591,
+   "steps": 11,
+   "tool_calls": 10,
+   "tools": [
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo sharkdp/bat -c 'ls; echo \"## src\"; ls src; echo \"## pager grep\"; grep -rn \"PAGER\\|pager\" src --include=\"*.rs\" | head -60'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo sharkdp/bat -c 'cat src/pager.rs; echo \"## main.rs\"; sed -n \"315,395p\" src/bin/bat/main.rs; echo \"## config.rs\"; sed -n \"120,220p\" src/config.rs'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo sharkdp/bat -c 'echo \"## paging.rs\"; cat src/paging.rs; echo \"## less.rs\"; cat src/less.rs'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo sharkdp/bat -c 'grep -rn \"LESS\\|quit-if-one-screen\\|RAW-CONTROL\\|retrieve_less_version\\|PagerKind::Less\\|-R\\b\" src --include=\"*.rs\" | grep -v \"^src/less.rs\" | head -40; echo \"## output.rs\"; grep -n -A 60 \"enum OutputType\\|fn stdout\\|pager\" src/output.rs | head -140'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo sharkdp/bat -c 'sed -n \"150,215p\" src/output.rs; echo \"## app.rs\"; sed -n \"85,180p\" src/bin/bat/app.rs; echo \"## app.rs 285\"; sed -n \"285,310p\" src/bin/bat/app.rs'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo sharkdp/bat -c 'sed -n \"355,405p\" src/bin/bat/clap_app.rs; echo \"## env grep\"; grep -n \"env(\\|BAT_PAGING\\|BAT_PAGER\" src/bin/bat/clap_app.rs; echo \"## app matches\"; grep -n -B5 -A 40 \"fn matches(\" src/bin/bat/app.rs | head -80'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo sharkdp/bat -c 'sed -n \"247,285p\" src/bin/bat/app.rs; echo \"## bin config.rs\"; sed -n \"60,110p\" src/bin/bat/config.rs; echo \"---\"; sed -n \"150,215p\" src/bin/bat/config.rs'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo sharkdp/bat -c 'grep -n -A 20 \"fn build_args_without_config\" src/bin/bat/app.rs; echo \"## BAT_OPTS\"; grep -n -A 15 \"fn get_args_from_env_opts_var\" src/bin/bat/config.rs; echo \"## changelog less\"; grep -n -i \"pager\\|less\" CHANGELOG.md | head -30'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo sharkdp/bat -c 'sed -n \"300,345p\" src/bin/bat/app.rs; echo \"## README pager\"; grep -n -i \"BAT_PAGER\\|--pager\\|PAGER\" README.md | head -25'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo sharkdp/bat -c 'sed -n \"645,705p\" README.md'"
+    }
+   ],
+   "tokens": {
+    "input": 19191,
+    "output": 2272,
+    "reasoning": 1533,
+    "cache_read": 156288,
+    "cache_write": 0
+   },
+   "tokens_in_total": 175479,
+   "tokens_total": 179284,
+   "cost_usd": 0.005630513999999999,
+   "correct": true,
+   "checks": [
+    true,
+    true,
+    true,
+    true
+   ],
+   "answer": "I'll look at the bat source to trace the pager selection logic.\n## Pager selection in `sharkdp/bat`\n\n### Precedence (highest \u2192 lowest)\n\n1. **`--pager=<cmd>`** \u2014 command line, plus anything in the config file (both land in the same clap `pager` value; CLI args are appended after config args and clap's `overrides_with(\"pager\")` makes the last one win). Source is reported as `PagerSource::Config`.\n2. **`BAT_PAGER`** \u2014 in the normal `bat` binary this is injected as `--pager=<value>` after config-file args and before real CLI args (`get_args_from_env_vars()` in `src/bin/bat/config.rs`, applied in `App::matches`). If it doesn't go through clap (library/`get_pager_executable(None)` path), `pager::get_pager` reads it directly as `PagerSource::EnvVarBatPager`.\n3. **`PAGER`** \u2014 read only in `pager::get_pager` when no `--pager`/`BAT_PAGER` was given (`PagerSource::EnvVarPager`).\n4. **Default: `less`** (`PagerSource::Default`). If the whole command is empty (`--pager=\"\"` / empty env var), `get_pager` returns `None` and output goes straight to stdout.\n\nNote `BAT_OPTS` is not a pager-specific channel: if set, it *replaces* the config file's args, then `BAT_*` env args and CLI args are appended, so the same last-wins ordering applies. `--no-config`/`--diagnostic` skip the config file but still include `BAT_PAGER`.\n\nThe command string is split with `shell_words::split` (on Windows, a custom splitter that keeps `\\` as a path separator so `C:\\tools\\less.exe` survives), so flags like `BAT_PAGER=\"less -RFK\"` are honored. The binary name is matched by file stem, hence `less`, `less.exe` \u2192 `PagerKind::Less`, plus `More`, `Most`, `Builtin` (`--pager=builtin` \u2192 `minus`), and `Bat` (when the pager resolves to the currently running executable, including `batcat`).\n\n### When a pager is used at all\n\n`--paging` (`auto` default / `never` / `always`, or `-P`, or `BAT_PAGING`) gates this:\n- `never` \u2192 stdout.\n- `always` \u2192 pager unconditionally (even for small inputs or non-TTY output).\n- `auto` \u2192 pager only if stdout is a terminal; `QuitIfOneScreen` for normal files, and for stdin piped into `bat` when stdout is a TTY but stdin is not.\n\nThen `OutputType::try_pager` runs: unknown/badly-quoted command \u2192 error; `PagerKind::Bat` \u2192 `InvalidPagerValueBat` error (deliberate, to avoid recursion); `builtin` \u2192 internal `minus` pager; binary not found on `PATH` \u2192 warning and fall back to stdout.\n\n### Pager rewriting for `PAGER`\n\nIf the pager came specifically from `PAGER` (not `--pager`/`BAT_PAGER`) and its kind is `more`, `most`, or `bat`, bat silently substitutes plain `less` with no args \u2014 `more`/`most` don't support colors, and `PAGER=bat` would recurse. (In the normal binary `BAT_PAGER` arrives as `--pager`, so it's never rewritten; `--pager=bat` is a hard error instead.)\n\n### Special handling when the pager is `less`\n\nIn `OutputType::try_pager` (`src/output.rs`), bat adds flags itself only when the user gave *no* arguments; if the pager command has explicit args (e.g. `--pager=\"less -R\"`) it passes them through untouched:\n\n- `-R` (`--RAW-CONTROL-CHARS`) \u2014 required to interpret bat's ANSI colors.\n- `-F` (`--quit-if-one-screen`) \u2014 only when the mode is `QuitIfOneScreen` (i.e. `auto`; not with `--paging=always`).\n- `-S` (`--chop-long-lines`) \u2014 when `--wrap=never` / `-S` is used.\n- `-K` (`--quit-on-intr`) \u2014 so less exits when bat gets SIGINT; skipped for BusyBox less, which lacks it.\n- `--no-init` (`-X`) \u2014 only together with `-F`, and only for less < 530 (< 558 on Windows) or when the version can't be determined, to work around an old `-F` bug; newer less omits it so mouse-wheel support keeps working.\n- `LESSCHARSET=UTF-8` is set in the child environment.\n- With the `lessopen` feature, `--no-lessopen` is appended so less doesn't re-preprocess input (bat handles `$LESSOPEN`/`$LESSCLOSE` itself, warning if `LESSOPEN` has no `%s`).\n\nVersion detection is done by running `<pager> --version` and parsing `less <N>` (dropping a minor component like `581.2`), falling back to detecting `BusyBox` from stderr \u2014 this drives the `-K`/`--no-init` decisions.",
+   "errors": []
+  },
+  {
+   "task": "bat-pager",
+   "variant": "without",
+   "rep": 0,
+   "model": "opencode-go/deepseek-v4.1-flash",
+   "opencode": "opencode v2.2.5",
+   "start_ms": 1793989052950,
+   "exit": 0,
+   "wall_s": 297.075,
+   "steps": 18,
+   "tool_calls": 17,
+   "tools": [
+    {
+     "tool": "execute",
+     "label": "execute: GitHub API",
+     "status": "completed",
+     "input": "const repo = await fetch(\"https://api.github.com/repos/sharkdp/bat/git/trees/master?recursive=1\", {headers:{\"User-Agent\":\"opencode\"}}); const json = await repo.json(); const paths = json.tree.map(t=>t.path).filter(p=>/pager|output|main\\.rs|clap_app|args/i.test(p)); return paths;"
+    },
+    {
+     "tool": "execute",
+     "label": "execute: raw file download",
+     "status": "completed",
+     "input": "const base = \"https://raw.githubusercontent.com/sharkdp/bat/master/\"; const files = [\"src/pager.rs\",\"src/bin/bat/clap_app.rs\",\"src/bin/bat/main.rs\"]; const out = {}; for (const f of files) { const r = await fetch(base+f); out[f] = await r.text(); } return {pager: out[\"src/pager.rs\"], main_len: out[\"src/bin/bat/main.rs\"].length};"
+    },
+    {
+     "tool": "execute",
+     "label": "execute: raw file download",
+     "status": "completed",
+     "input": "const base = \"https://raw.githubusercontent.com/sharkdp/bat/master/\"; const out = {}; for (const f of [\"src/output.rs\",\"src/bin/bat/main.rs\",\"src/bin/bat/clap_app.rs\"]) { const r = await fetch(base+f); out[f] = await r.text(); } const grep = (s, re) => s.split(\"\\n\").map((l,i)=>[i+1,l]).filter(([i,l])=>re.test(l)); return { output_pager: grep(out[\"src/output.rs\"], /pager|Pager|PAGER|LESS|paging|Paging|term_width|stdout_is_tty/i).map(x=>x[0]+\": \"+x[1]).join(\"\\n\"), main_pager: grep(out[\"src/bin/bat/main.rs\"], /pager|Pager|PAGER|LESS|paging|Paging|config|interactive/i).map(x=>x[0]+\": \"+x[1]).join("
+    },
+    {
+     "tool": "execute",
+     "label": "execute: raw file download",
+     "status": "completed",
+     "input": "const base = \"https://raw.githubusercontent.com/sharkdp/bat/master/\"; const out = {}; for (const f of [\"src/output.rs\",\"src/config.rs\",\"src/paging.rs\",\"src/less.rs\",\"src/bin/bat/clap_app.rs\"]) { const r = await fetch(base+f); out[f] = await r.text(); } const lines = (s,a,b)=>s.split(\"\\n\").slice(a-1,b).map((l,i)=>(a+i)+\": \"+l).join(\"\\n\"); const grep = (s, re) => s.split(\"\\n\").map((l,i)=>[i+1,l]).filter(([i,l])=>re.test(l)).map(x=>x[0]+\": \"+x[1]).join(\"\\n\"); return { try_pager: lines(out[\"src/output.rs\"],75,205), config_getpager: grep(out[\"src/config.rs\"], /get_pager|pager|PAGER|paging|Paging|BA"
+    },
+    {
+     "tool": "execute",
+     "label": "execute: raw file download",
+     "status": "completed",
+     "input": "const base = \"https://raw.githubusercontent.com/sharkdp/bat/master/\"; const out = {}; for (const f of [\"src/bin/bat/app.rs\",\"src/bin/bat/main.rs\",\"src/bin/bat/clap_app.rs\",\"src/config.rs\"]) { const r = await fetch(base+f); out[f] = await r.text(); } const lines = (s,a,b)=>s.split(\"\\n\").slice(a-1,b).map((l,i)=>(a+i)+\": \"+l).join(\"\\n\"); const grep = (s, re) => s.split(\"\\n\").map((l,i)=>[i+1,l]).filter(([i,l])=>re.test(l)).map(x=>x[0]+\": \"+x[1]).join(\"\\n\"); return { app_paging: grep(out[\"src/bin/bat/app.rs\"], /paging|pager|PAGER|PAGING|LESS|interactive|term|tty|config/i), main_config: grep(out[\"sr"
+    },
+    {
+     "tool": "execute",
+     "label": "execute: raw file download",
+     "status": "completed",
+     "input": "const base = \"https://raw.githubusercontent.com/sharkdp/bat/master/\"; const out = {}; for (const f of [\"src/bin/bat/app.rs\",\"src/config.rs\",\"src/bin/bat/main.rs\"]) { const r = await fetch(base+f); out[f] = await r.text(); } const lines = (s,a,b)=>s.split(\"\\n\").slice(a-1,b).map((l,i)=>(a+i)+\": \"+l).join(\"\\n\"); const grep = (s, re) => s.split(\"\\n\").map((l,i)=>[i+1,l]).filter(([i,l])=>re.test(l)).map(x=>x[0]+\": \"+x[1]).join(\"\\n\"); return { app_180_330: lines(out[\"src/bin/bat/app.rs\"],180,330), cfg_env: grep(out[\"src/config.rs\"], /get_args_from_env|env_opts|BAT_|PAGER|PAGING|LESS|fn /i), cfg_secti"
+    },
+    {
+     "tool": "execute",
+     "label": "execute: raw file download",
+     "status": "completed",
+     "input": "const base = \"https://raw.githubusercontent.com/sharkdp/bat/master/\"; const out = {}; for (const f of [\"src/bin/bat/config.rs\",\"src/bin/bat/main.rs\"]) { const r = await fetch(base+f); out[f] = await r.text(); } const grep = (s, re) => s.split(\"\\n\").map((l,i)=>[i+1,l]).filter(([i,l])=>re.test(l)).map(x=>x[0]+\": \"+x[1]).join(\"\\n\"); return { cfg: out[\"src/bin/bat/config.rs\"], main_315_390: out[\"src/bin/bat/main.rs\"].split(\"\\n\").slice(314,390).map((l,i)=>(315+i)+\": \"+l).join(\"\\n\"), };"
+    },
+    {
+     "tool": "execute",
+     "label": "execute: raw file download",
+     "status": "completed",
+     "input": "const base = \"https://raw.githubusercontent.com/sharkdp/bat/master/\"; const out = {}; for (const f of [\"README.md\",\"doc/bat.1.in\",\"src/error.rs\",\"src/wrapping.rs\"]) { const r = await fetch(base+f); out[f] = await r.text(); } const lines = (s,a,b)=>s.split(\"\\n\").slice(a-1,b).map((l,i)=>(a+i)+\": \"+l).join(\"\\n\"); const grep = (s, re) => s.split(\"\\n\").map((l,i)=>[i+1,l]).filter(([i,l])=>re.test(l)).map(x=>x[0]+\": \"+x[1]).join(\"\\n\"); return { readme: grep(out[\"README.md\"], /PAGER|pager|paging|Paging|less|LESS/i), man: grep(out[\"doc/bat.1.in\"], /PAGER|pager|paging|Paging|less|LESS/i), error: grep(ou"
+    },
+    {
+     "tool": "execute",
+     "label": "execute: raw file download",
+     "status": "completed",
+     "input": "const base = \"https://raw.githubusercontent.com/sharkdp/bat/master/\"; const r = await fetch(base+\"README.md\"); const s = await r.text(); const lines = (a,b)=>s.split(\"\\n\").slice(a-1,b).map((l,i)=>(a+i)+\": \"+l).join(\"\\n\"); const cargo = await (await fetch(base+\"Cargo.toml\")).text(); return { section: lines(640,715), cfg_section: lines(600,640), version: cargo.split(\"\\n\").filter(l=>/^version|^name/.test(l)).join(\"\\n\"), };"
+    },
+    {
+     "tool": "execute",
+     "label": "execute: GitHub API",
+     "status": "completed",
+     "input": "const repo = await fetch(\"https://api.github.com/repos/sharkdp/bat/git/trees/master?recursive=1\", {headers:{\"User-Agent\":\"opencode\"}}); const j = await repo.json(); const files = j.tree.filter(t=>t.type===\"blob\" && /\\.(rs|md|in|1|txt)$/.test(t.path)).map(t=>t.path); const hits = []; for (const f of files) { if (!/^(src|doc|tests)\\//.test(f)) continue; const r = await fetch(\"https://raw.githubusercontent.com/sharkdp/bat/master/\"+f); const t = await r.text(); if (/LESS\\b|LESSCHARSET|LESSOPEN|BAT_OPTS/.test(t)) { const ls = t.split(\"\\n\").map((l,i)=>[i+1,l]).filter(([i,l])=>/LESS\\b|LESSCHARSET|LES"
+    },
+    {
+     "tool": "execute",
+     "label": "execute: raw file download",
+     "status": "completed",
+     "input": "const base = \"https://raw.githubusercontent.com/sharkdp/bat/master/\"; const t = await (await fetch(base+\"tests/integration_tests.rs\")).text(); const ls = t.split(\"\\n\").map((l,i)=>[i+1,l]).filter(([i,l])=>/BAT_PAGER|PAGER|--pager|BAT_PAGING|--paging/.test(l)); return ls.map(([i,l])=>i+\": \"+l).join(\"\\n\");"
+    },
+    {
+     "tool": "execute",
+     "label": "execute: raw file download",
+     "status": "completed",
+     "input": "const base = \"https://raw.githubusercontent.com/sharkdp/bat/master/\"; const t = await (await fetch(base+\"tests/integration_tests.rs\")).text(); const lines = t.split(\"\\n\"); const ranges = [[1425,1860]]; return ranges.map(([a,b])=>lines.slice(a-1,b).map((l,i)=>(a+i)+\": \"+l).join(\"\\n\")).join(\"\\n\");"
+    },
+    {
+     "tool": "execute",
+     "label": "execute: raw file download",
+     "status": "completed",
+     "input": "const base = \"https://raw.githubusercontent.com/sharkdp/bat/master/\"; const t = await (await fetch(base+\"README.md\")).text(); const c = await (await fetch(base+\"CHANGELOG.md\")).text(); const show = (s,re)=>s.split(\"\\n\").map((l,i)=>[i+1,l]).filter(([i,l])=>re.test(l)).map(([i,l])=>i+\": \"+l).join(\"\\n\"); return { readme: show(t, /BAT_PAGING|\\bPAGING\\b|BAT_PAGER|BAT_OPTS/), changelog: show(c, /BAT_OPTS|BAT_PAGER|BAT_PAGING|builtin|minus|pager/i).slice(0,6000), };"
+    },
+    {
+     "tool": "execute",
+     "label": "execute: raw file download",
+     "status": "completed",
+     "input": "const base = \"https://raw.githubusercontent.com/sharkdp/bat/master/\"; const c = await (await fetch(base+\"CHANGELOG.md\")).text(); return c.split(\"\\n\").slice(0,110).map((l,i)=>(i+1)+\": \"+l).join(\"\\n\");"
+    },
+    {
+     "tool": "execute",
+     "label": "execute: raw file download",
+     "status": "completed",
+     "input": "const base = \"https://raw.githubusercontent.com/sharkdp/bat/master/\"; for (const f of [\"src/pager.rs\",\"src/output.rs\",\"src/bin/bat/app.rs\",\"src/bin/bat/config.rs\"]) { const t = await (await fetch(base+f)).text(); const want = /^(pub\\(crate\\) )?fn get_pager|^pub\\(crate\\) enum PagerSource|^fn try_pager|fn build_args_without_config|fn matches\\(|pub fn config|fn get_args_from_env_vars|fn get_args_from_env_opts_var|fn get_args_from_config_file|^fn split_command/; console.log(\"### \"+f); t.split(\"\\n\").forEach((l,i)=>{ if (want.test(l)) console.log((i+1)+\": \"+l); }); }"
+    },
+    {
+     "tool": "execute",
+     "label": "execute: raw file download",
+     "status": "completed",
+     "input": "const base = \"https://raw.githubusercontent.com/sharkdp/bat/master/\"; const c = await (await fetch(base+\"Cargo.toml\")).text(); return c.split(\"\\n\").slice(0,120).map((l,i)=>(i+1)+\": \"+l).join(\"\\n\");"
+    },
+    {
+     "tool": "execute",
+     "label": "execute: raw file download",
+     "status": "completed",
+     "input": "const tag=\"v0.26.1\"; const base=`https://raw.githubusercontent.com/sharkdp/bat/${tag}/`; const out={}; for (const f of [\"src/pager.rs\",\"src/output.rs\",\"src/bin/bat/config.rs\",\"src/bin/bat/app.rs\"]) { const r=await fetch(base+f); out[f]=r.ok?await r.text():\"MISSING\"; } const grep=(s,re)=>s.split(\"\\n\").map((l,i)=>[i+1,l]).filter(([i,l])=>re.test(l)).map(([i,l])=>i+\": \"+l).join(\"\\n\"); return { pager: grep(out[\"src/pager.rs\"], /_ => \\(\"less\"|PAGER|BAT_PAGER|use_less_instead|replace_arguments|match \\(/), out: grep(out[\"src/output.rs\"], /-R|-F|-S|-K|no-init|LESSCHARSET|no-lessopen|PagerKind::Less/),"
+    }
+   ],
+   "tokens": {
+    "input": 45448,
+    "output": 4927,
+    "reasoning": 16502,
+    "cache_read": 561664,
+    "cache_write": 0
+   },
+   "tokens_in_total": 607112,
+   "tokens_total": 628541,
+   "cost_usd": 0.021359591999999997,
+   "correct": true,
+   "checks": [
+    true,
+    true,
+    true,
+    true
+   ],
+   "answer": "Based on current `sharkdp/bat` (`v0.26.1`/`master`), the logic is in `src/pager.rs` (`get_pager`) and `src/output.rs` (`try_pager`).\n\n## Pager command precedence\n\nFrom highest to lowest:\n\n| Rank | Source |\n|---|---|\n| 1 | `--pager` on the command line |\n| 2 | `BAT_PAGER` environment variable |\n| 3 | `--pager` in `BAT_OPTS` or in bat's config file |\n| 4 | `PAGER` environment variable |\n| 5 | `less` (default) |\n\nThe mechanism is that bat builds one argument list in this order:\n\n```\nconfig file args (or BAT_OPTS)  \u2192  env-derived args  \u2192  real CLI args\n```\n\n`BAT_PAGER` is injected as `--pager=$BAT_PAGER`, and clap's `.overrides_with(\"pager\")` makes the last occurrence win. That is why the CLI beats `BAT_PAGER`, which beats the config file. `PAGER` is not passed through clap; `pager.rs` reads it directly only after no higher-priority pager was selected.\n\nCaveats:\n\n- `BAT_OPTS` **replaces** the config file; it does not merge with it. If `BAT_OPTS` is set and does not contain `--pager`, a `--pager` in the config file is not used.\n- System config is read first, then user config, so the user config wins on conflicts.\n- `--no-config` skips the config file but still uses environment variables.\n- `PAGER` is consulted only if neither `--pager`, `BAT_PAGER`, nor a config-file/`BAT_OPTS` pager was selected.\n- An empty value (`BAT_PAGER=\"\"` or `--pager=`) means \u201cno pager\u201d, not \u201cuse the default\u201d.\n- `--pager=builtin` or `BAT_PAGER=builtin` selects bat's built-in `minus` pager.\n\n## Default pager\n\n`less`, on all platforms. There is no \u201cuse `more` on Windows\u201d default. If `less` cannot be found, bat prints a warning and falls back to writing directly to stdout.\n\n## When paging is used\n\nPager selection only matters if paging is enabled. That has a parallel precedence:\n\n1. `--paging=auto|never|always` (and `-P` / `-pp`)\n2. `BAT_PAGING`\n3. `--paging` in `BAT_OPTS`/config\n4. default `auto`\n\n`-P` is an alias for `--paging=never`; `-pp` also disables paging. These are order-sensitive: the last relevant flag wins. In `auto` mode, bat pages only when stdout is an interactive terminal; when reading from stdin it additionally requires stdout to be a TTY and stdin not to be a TTY.\n\n## Special handling when the pager is `less`\n\nbat detects `less` by the binary's file stem (`less` or `less.exe`). Then:\n\n- If **no pager arguments were supplied**, or the pager came from the generic `PAGER` variable, bat replaces the arguments with its own:\n  - `-R` (`--RAW-CONTROL-CHARS`) so ANSI colors work.\n  - `-F` (`--quit-if-one-screen`) when paging mode is `QuitIfOneScreen` (the normal `auto` case). It is **not** added for `--paging=always`.\n  - `-S` (`--chop-long-lines`) when wrapping is explicitly disabled (`--wrap=never` / `-S`).\n  - `-K` (`--quit-on-intr`) so `less` quits on SIGINT; skipped for BusyBox `less`.\n  - `--no-init` when `-F` is used and `less` is older than 530 (older than 558 on Windows), or its version cannot be determined. This fixes an old `-F` bug but breaks mouse-wheel support.\n- If arguments **were** supplied via `--pager`, `BAT_PAGER`, or the config file, bat passes them through unchanged and does not add `-R`/`-F`/`-K`/`-S`/`--no-init`. This is why `BAT_PAGER=\"less -RFK\"` suppresses bat's automatic options.\n- This also means `PAGER=\"less -F\"` is special: because `PAGER` is generic, bat discards those arguments and uses its own managed `less` invocation instead.\n- bat always sets `LESSCHARSET=UTF-8` for the child `less`.\n- If built with the optional `lessopen` feature, bat adds `--no-lessopen` so `less` does not reprocess input that bat already preprocessed via `$LESSOPEN`.\n- To decide `-K`/`--no-init`, bat runs `less --version`; if that fails, it looks for `BusyBox ` in stderr.\n\n## Other pager quirks\n\n- If `PAGER` names `more`, `most`, or `bat`, bat silently uses `less` instead. This only applies to the generic `PAGER` variable.\n- `BAT_PAGER=most` or `--pager=most` is obeyed. `BAT_PAGER=bat` or `--pager=bat` is a hard error: \u201cUse of bat as a pager is disallowed in order to avoid infinite recursion problems\u201d.\n- A missing pager binary produces a warning and falls back to stdout.\n- A pager command with invalid shell quoting is fatal: \u201cCould not parse pager command.\u201d\n- On Windows, bat parses the pager command itself and preserves backslashes, so paths like `C:\\tools\\less.exe` are not mangled.",
+   "errors": []
+  },
+  {
+   "task": "bat-pager",
+   "variant": "without",
+   "rep": 1,
+   "model": "opencode-go/deepseek-v4.1-flash",
+   "opencode": "opencode v2.2.5",
+   "start_ms": 1793989104074,
+   "exit": 0,
+   "wall_s": 176.822,
+   "steps": 8,
+   "tool_calls": 14,
+   "tools": [
+    {
+     "tool": "shell",
+     "label": "shell: local file ops",
+     "status": "completed",
+     "input": "find /home/dev/work -maxdepth 2 -iname '*bat*' 2>/dev/null | head -50"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: other",
+     "status": "completed",
+     "input": "ls -la /home/dev/work"
+    },
+    {
+     "tool": "webfetch",
+     "label": "webfetch",
+     "status": "completed",
+     "input": "https://raw.githubusercontent.com/sharkdp/bat/master/src/bin/bat/main.rs"
+    },
+    {
+     "tool": "webfetch",
+     "label": "webfetch",
+     "status": "completed",
+     "input": "https://raw.githubusercontent.com/sharkdp/bat/master/src/less.rs"
+    },
+    {
+     "tool": "webfetch",
+     "label": "webfetch",
+     "status": "completed",
+     "input": "https://raw.githubusercontent.com/sharkdp/bat/master/src/bin/bat/app.rs"
+    },
+    {
+     "tool": "webfetch",
+     "label": "webfetch",
+     "status": "completed",
+     "input": "https://raw.githubusercontent.com/sharkdp/bat/master/src/config.rs"
+    },
+    {
+     "tool": "webfetch",
+     "label": "webfetch",
+     "status": "completed",
+     "input": "https://raw.githubusercontent.com/sharkdp/bat/master/src/output.rs"
+    },
+    {
+     "tool": "webfetch",
+     "label": "webfetch",
+     "status": "completed",
+     "input": "https://raw.githubusercontent.com/sharkdp/bat/master/src/bin/bat/config.rs"
+    },
+    {
+     "tool": "webfetch",
+     "label": "webfetch",
+     "status": "completed",
+     "input": "https://raw.githubusercontent.com/sharkdp/bat/master/src/bin/bat/clap_app.rs"
+    },
+    {
+     "tool": "webfetch",
+     "label": "webfetch",
+     "status": "completed",
+     "input": "https://raw.githubusercontent.com/sharkdp/bat/master/src/pager.rs"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: raw file download",
+     "status": "completed",
+     "input": "for tag in v0.24.0 v0.18.3 v0.12.1; do echo \"### $tag\"; curl -fsSL \"https://raw.githubusercontent.com/sharkdp/bat/$tag/src/output.rs\" | grep -n -E 'LESS|less|pager|Pager' | head -80; done"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: raw file download",
+     "status": "completed",
+     "input": "curl -fsSL https://raw.githubusercontent.com/sharkdp/bat/master/doc/bat.1.in | grep -n -A12 -B4 -i 'pager' | head -120"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: GitHub API",
+     "status": "completed",
+     "input": "curl -fsSL https://raw.githubusercontent.com/sharkdp/bat/master/Cargo.toml | sed -n '1,90p'; echo '---latest release---'; curl -fsSL https://api.github.com/repos/sharkdp/bat/releases/latest | grep -E '\"tag_name\"|\"published_at\"'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: raw file download",
+     "status": "completed",
+     "input": "curl -fsSL https://raw.githubusercontent.com/sharkdp/bat/master/README.md | grep -n -i -A25 -B5 'pager' | head -160"
+    }
+   ],
+   "tokens": {
+    "input": 32913,
+    "output": 2162,
+    "reasoning": 13314,
+    "cache_read": 169728,
+    "cache_write": 0
+   },
+   "tokens_in_total": 202641,
+   "tokens_total": 218117,
+   "cost_usd": 0.014731733999999998,
+   "correct": true,
+   "checks": [
+    true,
+    true,
+    true,
+    true
+   ],
+   "answer": "`bat` chooses the pager command in `src/pager.rs::get_pager()` and launches it in `src/output.rs::try_pager()`. The pager is only considered at all when paging mode is not `never`.\n\n## Pager command precedence\n\nHighest to lowest:\n\n1. **`--pager` on the command line** \u2014 last occurrence wins.\n2. **`BAT_PAGER`** \u2014 bat-specific override.\n3. **`--pager` from the config file** \u2014 or from `BAT_OPTS`, which *replaces* the config file entirely when set.\n4. **`PAGER`** \u2014 only consulted if no config/`BAT_PAGER`/`--pager` value was supplied.\n5. **`less`** \u2014 built-in default.\n\n`BAT_PAGER` is implemented by injecting a `--pager=...` argument after the config-file arguments and before the CLI arguments, which is why it outranks the config file but loses to the command line.\n\nSpecial cases:\n\n- An empty value (`PAGER=\"\"`, `BAT_PAGER=\"\"`, `--pager=\"\"`) means **no pager**: output goes straight to stdout.\n- `--pager=builtin` uses bat's in-process `minus` pager, not an external command.\n- `PAGER=more` or `PAGER=most` is silently replaced by `less`, because those pagers don't handle colors.\n- `PAGER=bat`/`PAGER=batcat` is also silently replaced by `less` to avoid recursion. But `--pager=bat` or `BAT_PAGER=bat` is a hard error.\n- If the selected pager executable cannot be found, bat prints a warning and falls back to **stdout**, not to `less`.\n- `--no-config` skips the config file, but `BAT_PAGER`/`BAT_PAGING` still apply.\n\n## When the pager is used\n\nSeparately from *which* pager, paging mode decides *whether* it runs:\n\n- `--paging` on the CLI beats `BAT_PAGING`, which beats the config file.\n- `--paging=never`, `-P`/`--no-paging`, and `-pp` disable paging.\n- `--paging=always` forces the pager even when stdout is not a terminal.\n- Default `auto`: pager only when stdout is a TTY; if reading from stdin, stdin must also not be a TTY. Auto uses `QuitIfOneScreen`.\n- `--paging=never` means the pager command is never evaluated at all.\n\n## Special handling when the pager is `less`\n\n`less` is recognized by the executable's basename/file stem, so paths like `/usr/bin/less` and `less.exe` count.\n\nWhen bat generates the argument list \u2014 i.e. the pager is `less` with no explicit arguments, or the pager came from generic `PAGER` \u2014 it adds:\n\n- **`-R`** always, so ANSI color sequences are interpreted correctly.\n- **`-F`** (`--quit-if-one-screen`) only in `QuitIfOneScreen` mode, i.e. the default `auto` mode. Not with `--paging=always`.\n- **`-S`** when bat itself is in `NoWrapping(true)` mode, i.e. `--chop-long-lines` or `--wrap=never`.\n- **`-K`** (`--quit-on-intr`) so `less` exits when bat is interrupted \u2014 omitted for BusyBox `less`, which doesn't support it.\n- **`--no-init`** in `QuitIfOneScreen` mode only when the `less` version is unknown or older than 530 (older than 558 on Windows). This works around an old `-F` bug, at the cost of mouse-wheel support.\n\nbat detects the `less` version by running `less --version`; BusyBox is detected from its error output.\n\nImportant argument behavior:\n\n- `--pager=\"less -F\"` or `BAT_PAGER=\"less -F\"`: bat uses those arguments **verbatim** and does **not** inject `-R`, `-F`, `-K`, etc.\n- `PAGER=\"less -F\"`: bat **discards** the supplied arguments and constructs its own set, specifically to guarantee `-R`.\n- `--pager=less` with no arguments: bat injects its normal argument set.\n\nOther `less` specifics:\n\n- bat sets **`LESSCHARSET=UTF-8`** for the child process.\n- bat does **not** set or override `LESS`; only `LESSCHARSET`. Your `LESS` options still apply, though bat's explicit command-line flags generally take precedence.\n- If built with the optional `lessopen` feature, bat also passes `--no-lessopen` so `less` doesn't reprocess input through `$LESSOPEN`.\n\nSource: [`src/pager.rs`](https://github.com/sharkdp/bat/blob/master/src/pager.rs), [`src/output.rs`](https://github.com/sharkdp/bat/blob/master/src/output.rs), [`src/bin/bat/config.rs`](https://github.com/sharkdp/bat/blob/master/src/bin/bat/config.rs), [`src/bin/bat/app.rs`](https://github.com/sharkdp/bat/blob/master/src/bin/bat/app.rs).",
+   "errors": []
+  },
+  {
+   "task": "bat-pager",
+   "variant": "without",
+   "rep": 2,
+   "model": "opencode-go/deepseek-v4.1-flash",
+   "opencode": "opencode v2.2.5",
+   "start_ms": 1793989052931,
+   "exit": 0,
+   "wall_s": 231.758,
+   "steps": 22,
+   "tool_calls": 21,
+   "tools": [
+    {
+     "tool": "execute",
+     "label": "execute: GitHub API",
+     "status": "completed",
+     "input": "const urls = [ \"https://api.github.com/repos/sharkdp/bat/contents/src\", \"https://raw.githubusercontent.com/sharkdp/bat/master/Cargo.toml\", ]; const res = await Promise.all(urls.map(u => fetch(u))); for (const r of res) console.log(\"STATUS\", r.status, \"URL\", r.url); const tree = await res[0].json(); console.log(tree.map(t => t.name + \" \" + t.type).join(\"\\n\")); const cargo = await res[1].text(); console.log(\"---CARGO snips---\"); for (const line of cargo.split(\"\\n\")) if (/pager|less|shell-words|grep-cli|clircle/i.test(line)) console.log(line);"
+    },
+    {
+     "tool": "execute",
+     "label": "execute: raw file download",
+     "status": "completed",
+     "input": "const base=\"https://raw.githubusercontent.com/sharkdp/bat/master/src/\"; const files=[\"pager.rs\",\"paging.rs\",\"less.rs\",\"output.rs\",\"bin/bat/app.rs\"]; const out=await Promise.all(files.map(f=>fetch(base+f).then(r=>r.text()))); for(let i=0;i<files.length;i++){console.log(\"\\n===== \"+files[i]+\" =====\\n\");console.log(out[i]);}"
+    },
+    {
+     "tool": "execute",
+     "label": "execute: raw file download",
+     "status": "completed",
+     "input": "const base=\"https://raw.githubusercontent.com/sharkdp/bat/master/\"; const files=[\"src/bin/bat/clap_app.rs\",\"src/config.rs\",\"README.md\",\"doc/README.md\"]; const out=await Promise.all(files.map(f=>fetch(base+f).then(r=>r.ok?r.text():\"\"))); function show(name,txt,re,ctx=6){ console.log(\"\\n===== \"+name+\" matches =====\"); const lines=txt.split(\"\\n\"); const idx=[]; lines.forEach((l,i)=>{if(re.test(l))idx.push(i)}); const shown=new Set(); for(const i of idx){for(let j=Math.max(0,i-ctx);j<=Math.min(lines.length-1,i+ctx);j++){if(!shown.has(j)){shown.add(j);console.log((j+1)+\": \"+lines[j]);}}} } show(fil"
+    },
+    {
+     "tool": "execute",
+     "label": "execute: GitHub API",
+     "status": "completed",
+     "input": "const base=\"https://raw.githubusercontent.com/sharkdp/bat/master/\"; const [cfg, tags] = await Promise.all([ fetch(base+\"src/config.rs\").then(r=>r.text()), fetch(\"https://api.github.com/repos/sharkdp/bat/tags?per_page=5\").then(r=>r.json()) ]); console.log(\"TAGS\", tags.map(t=>t.name).join(\", \")); const lines=cfg.split(\"\\n\"); lines.forEach((l,i)=>{if(/pager/i.test(l)) console.log((i+1)+\": \"+l)});"
+    },
+    {
+     "tool": "execute",
+     "label": "execute: raw file download",
+     "status": "completed",
+     "input": "const tags=[\"v0.26.1\",\"v0.25.0\"]; for(const t of tags){ const [p,c]=await Promise.all([ fetch(`https://raw.githubusercontent.com/sharkdp/bat/${t}/src/pager.rs`).then(r=>r.ok?r.text():\"(none)\"), fetch(`https://raw.githubusercontent.com/sharkdp/bat/${t}/src/bin/bat/clap_app.rs`).then(r=>r.ok?r.text():\"(none)\") ]); console.log(\"\\n######## \"+t+\" pager.rs ########\\n\"+p.slice(0,4500)); const i=c.indexOf('Arg::new(\"pager\")'); console.log(\"\\n---- clap pager ----\\n\"+c.slice(i,i+900)); }"
+    },
+    {
+     "tool": "execute",
+     "label": "execute: raw file download",
+     "status": "completed",
+     "input": "const t=await fetch(\"https://raw.githubusercontent.com/sharkdp/bat/v0.26.1/src/config.rs\").then(r=>r.text()); const lines=t.split(\"\\n\"); for(const [a,b] of [[110,165],[300,480],[480,620]]){ console.log(\"\\n----- \"+a+\"-\"+b+\" -----\"); console.log(lines.slice(a-1,b).map((l,i)=>(a+i)+\": \"+l).join(\"\\n\")); }"
+    },
+    {
+     "tool": "execute",
+     "label": "execute: GitHub API",
+     "status": "completed",
+     "input": "const r=await fetch(\"https://api.github.com/repos/sharkdp/bat/contents/src/bin/bat?ref=v0.26.1\").then(r=>r.json()); console.log(r.map(x=>x.name).join(\"\\n\")); const f=await fetch(\"https://raw.githubusercontent.com/sharkdp/bat/v0.26.1/src/bin/bat/config.rs\").then(r=>r.text()); const lines=f.split(\"\\n\"); for(const [a,b] of [[1,180],[180,320]]){ console.log(\"\\n----- \"+a+\"-\"+b+\" -----\"); console.log(lines.slice(a-1,b).map((l,i)=>(a+i)+\": \"+l).join(\"\\n\")); }"
+    },
+    {
+     "tool": "execute",
+     "label": "execute: raw file download",
+     "status": "completed",
+     "input": "for(const t of [\"v0.26.1\",\"v0.25.0\",\"v0.24.0\"]){ const c=await fetch(`https://raw.githubusercontent.com/sharkdp/bat/${t}/src/bin/bat/config.rs`).then(r=>r.ok?r.text():\"\"); const i=c.indexOf(\"pub fn get_args_from_env_vars\"); console.log(\"\\n### \"+t+\" ###\\n\"+c.slice(i,i+750)); }"
+    },
+    {
+     "tool": "execute",
+     "label": "execute: raw file download",
+     "status": "completed",
+     "input": "const t=await fetch(\"https://raw.githubusercontent.com/sharkdp/bat/v0.26.1/src/output.rs\").then(r=>r.text()); const lines=t.split(\"\\n\"); const i=lines.findIndex(l=>l.includes(\"if pager.kind == PagerKind::Less\")); console.log(lines.slice(i-15,i+90).map((l,j)=>(i-14+j)+\": \"+l).join(\"\\n\"));"
+    },
+    {
+     "tool": "execute",
+     "label": "execute: raw file download",
+     "status": "completed",
+     "input": "const t=await fetch(\"https://raw.githubusercontent.com/sharkdp/bat/v0.26.1/src/bin/bat/app.rs\").then(r=>r.text()); const i=t.indexOf(\"fn matches(\"); console.log(t.slice(i,i+2600));"
+    },
+    {
+     "tool": "execute",
+     "label": "execute: raw file download",
+     "status": "completed",
+     "input": "const t=await fetch(\"https://raw.githubusercontent.com/sharkdp/bat/v0.26.1/src/error.rs\").then(r=>r.text()); const lines=t.split(\"\\n\"); lines.forEach((l,i)=>{if(/InvalidPager|pager/i.test(l)) console.log((i+1)+\": \"+l)});"
+    },
+    {
+     "tool": "execute",
+     "label": "execute: raw file download",
+     "status": "completed",
+     "input": "const t=await fetch(\"https://raw.githubusercontent.com/sharkdp/bat/v0.26.1/Cargo.toml\").then(r=>r.text()); const i=t.indexOf(\"[features]\"); console.log(t.slice(i,i+1200));"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: other HTTP",
+     "status": "completed",
+     "input": "mkdir -p /tmp/opencode/battest && cd /tmp/opencode/battest && curl -fsSL -o bat.tar.gz https://github.com/sharkdp/bat/releases/download/v0.26.1/bat-v0.26.1-x86_64-unknown-linux-gnu.tar.gz && tar xzf bat.tar.gz && ls -la"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: local file ops",
+     "status": "completed",
+     "input": "ls -ld /tmp/opencode /tmp; id; mktemp -d 2>&1 | head"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: other HTTP",
+     "status": "completed",
+     "input": "d=/tmp/tmp.8CQjhSL5rb; cd \"$d\" && curl -fsSL -o bat.tar.gz https://github.com/sharkdp/bat/releases/download/v0.26.1/bat-v0.26.1-x86_64-unknown-linux-gnu.tar.gz && tar xzf bat.tar.gz && ls -la"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: local file ops",
+     "status": "completed",
+     "input": "d=/tmp/tmp.8CQjhSL5rb; b=\"$d/bat-v0.26.1-x86_64-unknown-linux-gnu/bat\"; cd \"$d\" for n in cli batpager config pager; do printf '#!/bin/sh\\ncat >/dev/null\\necho %s >> %s/log\\n' \"$n\" \"$d\" > \"$d/p_$n\"; chmod +x \"$d/p_$n\"; done printf 'hello\\n' > \"$d/input.txt\" printf -- '--pager=%s/p_config\\n' \"$d\" > \"$d/batconfig\" run() { : > \"$d/log\"; \"$@\" >/dev/null 2>&1; echo \"-> $(cat \"$d/log\" 2>/dev/null || echo NONE)\"; } echo \"all four (expect cli):\" BAT_CONFIG_PATH=\"$d/batconfig\" BAT_PAGER=\"$d/p_batpager\" PAGER=\"$d/p_pager\" \"$b\" --paging=always --pager=\"$d/p_cli\" \"$d/input.txt\" >/dev/null 2>&1; echo \"-> $("
+    },
+    {
+     "tool": "shell",
+     "label": "shell: GitHub API",
+     "status": "completed",
+     "input": "uname -m; curl -fsSL https://api.github.com/repos/sharkdp/bat/releases/tags/v0.26.1 | grep -o '\"name\": \"[^\"]*\"' | head -40"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: other HTTP",
+     "status": "completed",
+     "input": "d=/tmp/tmp.8CQjhSL5rb; cd \"$d\" && curl -fsSL -o bat-arm.tar.gz https://github.com/sharkdp/bat/releases/download/v0.26.1/bat-v0.26.1-aarch64-unknown-linux-gnu.tar.gz && tar xzf bat-arm.tar.gz && ls -d bat-*aarch64* && b=\"$d/bat-v0.26.1-aarch64-unknown-linux-gnu/bat\" && \"$b\" --version"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: local file ops",
+     "status": "completed",
+     "input": "d=/tmp/tmp.8CQjhSL5rb; b=\"$d/bat-v0.26.1-aarch64-unknown-linux-gnu/bat\"; cd \"$d\" for n in cli batpager config pager; do printf '#!/bin/sh\\ncat >/dev/null\\necho %s >> %s/log\\n' \"$n\" \"$d\" > \"$d/p_$n\"; chmod +x \"$d/p_$n\"; done printf 'hello\\n' > \"$d/input.txt\" printf -- '--pager=%s/p_config\\n' \"$d\" > \"$d/batconfig\" echo \"all four (expect cli):\" : > \"$d/log\"; BAT_CONFIG_PATH=\"$d/batconfig\" BAT_PAGER=\"$d/p_batpager\" PAGER=\"$d/p_pager\" \"$b\" --paging=always --pager=\"$d/p_cli\" \"$d/input.txt\" >/dev/null 2>&1; echo \"-> $(cat \"$d/log\")\" echo \"no CLI (expect batpager):\" : > \"$d/log\"; BAT_CONFIG_PATH=\"$d/b"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: local file ops",
+     "status": "completed",
+     "input": "d=/tmp/tmp.8CQjhSL5rb; b=\"$d/bat-v0.26.1-aarch64-unknown-linux-gnu/bat\"; cd \"$d\"; mkdir -p fakebin for n in less more most; do printf '#!/bin/sh\\necho \"%s ARGS:$*\" >> %s/arglog\\ncat >/dev/null\\n' \"$n\" \"$d\" > \"$d/fakebin/$n\"; chmod +x \"$d/fakebin/$n\"; done cat > \"$d/fakebin/bat\" <<EOF #!/bin/sh echo \"bat-as-pager ARGS:\\$*\" >> $d/arglog cat >/dev/null EOF chmod +x \"$d/fakebin/bat\" run() { : > \"$d/arglog\"; PATH=\"$d/fakebin:$PATH\" \"$@\" \"$d/input.txt\" >/dev/null 2>&1; echo \"-> $(cat \"$d/arglog\" 2>/dev/null || echo NONE)\"; } echo \"PAGER=more (expect less):\"; PAGER=more run \"$b\" --paging=always echo "
+    },
+    {
+     "tool": "shell",
+     "label": "shell: local file ops",
+     "status": "completed",
+     "input": "d=/tmp/tmp.8CQjhSL5rb; b=\"$d/bat-v0.26.1-aarch64-unknown-linux-gnu/bat\"; cd \"$d\"; cat > \"$d/fakebin/less\" <<EOF #!/bin/sh if [ \"\\$1\" = \"--version\" ]; then echo \"less 600\"; exit 0; fi echo \"less ARGS:\\$*\" >> $d/arglog cat >/dev/null EOF chmod +x \"$d/fakebin/less\" run() { : > \"$d/arglog\"; PATH=\"$d/fakebin:$PATH\" script -qec \"$* $d/input.txt\" /dev/null >/dev/null 2>&1; echo \"-> $(cat \"$d/arglog\" 2>/dev/null || echo NONE)\"; } echo \"auto tty default (expect -R -F -K):\"; BAT_PAGER=less run \"$b\" echo \"auto tty chop (expect -R -F -S -K):\"; BAT_PAGER=less run \"$b\" --chop-long-lines echo \"auto tty expli"
+    }
+   ],
+   "tokens": {
+    "input": 45221,
+    "output": 5734,
+    "reasoning": 15694,
+    "cache_read": 713472,
+    "cache_write": 0
+   },
+   "tokens_in_total": 758693,
+   "tokens_total": 780121,
+   "cost_usd": 0.021780366,
+   "correct": true,
+   "checks": [
+    true,
+    true,
+    true,
+    true
+   ],
+   "answer": "`bat` splits this into two questions: **whether** to page, and **which** pager to run. The pager selection lives in `src/pager.rs`; spawning and `less` flags are in `src/output.rs`.\n\n## Which pager \u2014 highest to lowest precedence\n\n| Priority | Source |\n|---|---|\n| 1 | `--pager=...` on the command line (last occurrence wins) |\n| 2 | `BAT_PAGER` |\n| 3 | `--pager=...` in the config file (or in `BAT_OPTS`) |\n| 4 | `PAGER` |\n| 5 | default: `less` |\n\nA subtlety: `BAT_PAGER` is internally turned into a `--pager=...` argument *after* the config file is read and *before* the real command line. So it beats a config-file `--pager`, while an actual CLI `--pager` beats it. `--no-config` skips the config file but still honors `BAT_PAGER`.\n\nIf the winning value is empty (`BAT_PAGER=`, `--pager=`, etc.), `bat` treats that as \u201cno pager\u201d and writes to stdout. The default is literally `less` on every platform \u2014 not `more` on Windows. If `less` cannot be found, `bat` falls back to stdout.\n\n## Whether a pager is used\n\nControlled by `--paging` / `BAT_PAGING` / config file, with CLI winning:\n\n- `--paging=never`, `-P`/`--no-paging`, `BAT_PAGING=never`, or `-pp` \u2192 never use a pager.\n- `--paging=always` \u2192 always use it.\n- `--paging=auto` (default) \u2192 use it only when stdout is a terminal. If reading from stdin, it pages only when stdout is a terminal and stdin is *not* a terminal (i.e. piped input being displayed interactively). Otherwise it acts like `cat`, regardless of `--pager`.\n\n## Pager command handling\n\n- The command is split like shell words on Unix (and with a backslash-preserving splitter on Windows). It is not run through a shell, so pipes/redirections inside `--pager` do not work.\n- The pager is classified by executable basename: `less`, `more`, `most`, `builtin`, `bat` itself, or unknown.\n- If the pager came from generic `PAGER` and is `more`, `most`, or `bat`, `bat` silently substitutes plain `less` \u2014 `more`/`most` lack color support, and `bat` would recurse. This substitution is *not* done for `BAT_PAGER` or `--pager`; explicitly setting `--pager=bat` / `BAT_PAGER=bat` is an error (\u201cUse of bat as a pager is disallowed\u2026\u201d).\n- `--pager=builtin` (or `BAT_PAGER=builtin`) uses the built-in `minus` pager instead of an external binary.\n\n## Special handling when the pager is `less`\n\nIf the executable is named `less` (e.g. `/usr/bin/less`, `less.exe`):\n\nIf **no arguments** were supplied, or the pager came from `PAGER`, `bat` replaces the arguments with its own set:\n\n- `-R` \u2014 interpret ANSI color escapes (required for `bat`\u2019s colors)\n- `-F` \u2014 quit if one screen, but only in `--paging=auto`/one-screen mode, not `--paging=always`\n- `-S` \u2014 chop long lines, when `bat` is using `--chop-long-lines`/`--wrap=never`\n- `-K` \u2014 quit on interrupt, so `less` exits with `bat`; skipped for BusyBox `less` in current master\n- `--no-init` \u2014 only when `-F` is used and the detected `less` is older than 530 (older than 558 on Windows), or its version cannot be detected; this works around an old `-F` bug but can break mouse-wheel scrolling\n\nIt also always sets `LESSCHARSET=UTF-8` for `less`, and adds `--no-lessopen` when built with the `lessopen` feature to avoid double preprocessing.\n\nImportant exception: if arguments were explicitly supplied via `BAT_PAGER` or `--pager` (e.g. `BAT_PAGER=\"less -X\"`), `bat` passes exactly those arguments and adds **none** of the automatic flags above. You must include `-R` yourself, e.g. `--pager=\"less -RF\"`. In contrast, `PAGER=\"less -F\"` gets rewritten, because `PAGER` is generic and bat forces its own `less` flags.\n\nSources: `src/pager.rs`, `src/output.rs`, `src/less.rs`, `src/bin/bat/app.rs`, `src/bin/bat/config.rs`.",
+   "errors": []
+  },
+  {
+   "task": "bubbletea-fps",
+   "variant": "with",
+   "rep": 0,
+   "model": "opencode-go/deepseek-v4.1-flash",
+   "opencode": "opencode v2.2.5",
+   "start_ms": 1793989330381,
+   "exit": 0,
+   "wall_s": 7.621,
+   "steps": 3,
+   "tool_calls": 2,
+   "tools": [
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo charmbracelet/bubbletea -c 'grep -rn -m 40 \"WithFPS\\|maxFPS\\|minFPS\\|FPS\" --include=\"*.go\" . | head -60'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo charmbracelet/bubbletea -c 'sed -n \"140,160p\" options.go; echo \"## renderer\"; sed -n \"1,30p\" renderer.go; echo \"## tea\"; sed -n \"640,660p\" tea.go'"
+    }
+   ],
+   "tokens": {
+    "input": 1305,
+    "output": 466,
+    "reasoning": 37,
+    "cache_read": 17280,
+    "cache_write": 0
+   },
+   "tokens_in_total": 18585,
+   "tokens_total": 19088,
+   "cost_usd": 0.00054939,
+   "correct": true,
+   "checks": [
+    true,
+    true
+   ],
+   "answer": "In `charmbracelet/bubbletea`:\n\n- **Default FPS:** `60` (`defaultFPS`)\n- **Maximum FPS:** `120` (`maxFPS`)\n\nThese are defined in `renderer.go`:\n\n```go\nconst (\n\t// defaultFramerate specifies the maximum interval at which we should\n\t// update the view.\n\tdefaultFPS = 60\n\tmaxFPS     = 120\n)\n```\n\n`WithFPS` itself just stores the value (`p.fps = fps`). The clamping happens when the program starts in `tea.go`:\n\n```go\nif p.fps < 1 {\n\tp.fps = defaultFPS\n} else if p.fps > maxFPS {\n\tp.fps = maxFPS\n}\n```\n\nSo out-of-range values are **silently clamped, not rejected**:\n\n- `fps < 1` (zero, negative) \u2192 falls back to the default `60`\n- `fps > 120` \u2192 capped at `120`\n- Values `1`\u2013`120` are used as-is\n\nThis matches the doc comment on `WithFPS` in `options.go`: *\"If less than 1, the default value of 60 will be used. If over 120, the FPS will be capped at 120.\"*",
+   "errors": []
+  },
+  {
+   "task": "bubbletea-fps",
+   "variant": "with",
+   "rep": 1,
+   "model": "opencode-go/deepseek-v4.1-flash",
+   "opencode": "opencode v2.2.5",
+   "start_ms": 1793989263533,
+   "exit": 0,
+   "wall_s": 18.663,
+   "steps": 5,
+   "tool_calls": 4,
+   "tools": [
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo charmbracelet/bubbletea -c 'ls; echo \"## fps\"; grep -rn \"FPS\\|fps\\|framerate\\|FrameRate\" --include=\"*.go\" . | head -60'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo charmbracelet/bubbletea -c 'sed -n \"1,30p\" renderer.go; echo \"## options\"; sed -n \"140,160p\" options.go; echo \"## tea\"; sed -n \"490,505p\" tea.go; sed -n \"640,660p\" tea.go'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo charmbracelet/bubbletea -c 'grep -n \"^func \" tea.go | awk -F: \"\\$1<700\" | tail -8; echo \"##\"; sed -n \"620,655p\" tea.go'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo charmbracelet/bubbletea -c 'grep -n \"^func \" tea.go | head -30'"
+    }
+   ],
+   "tokens": {
+    "input": 3021,
+    "output": 697,
+    "reasoning": 338,
+    "cache_read": 32768,
+    "cache_write": 0
+   },
+   "tokens_in_total": 35789,
+   "tokens_total": 36824,
+   "cost_usd": 0.001172454,
+   "correct": true,
+   "checks": [
+    true,
+    true
+   ],
+   "answer": "In Bubble Tea's renderer (`renderer.go`):\n\n```go\nconst (\n    defaultFPS = 60\n    maxFPS     = 120\n)\n```\n\nSo the default frame rate is **60 FPS** and the maximum is **120 FPS**.\n\n`WithFPS` itself only stores the value (`options.go`):\n\n```go\n// WithFPS sets a custom maximum FPS at which the renderer should run. If\n// less than 1, the default value of 60 will be used. If over 120, the FPS\n// will be capped at 120.\nfunc WithFPS(fps int) ProgramOption {\n    return func(p *Program) {\n        p.fps = fps\n    }\n}\n```\n\nThe actual clamping happens in `NewProgram` after all options are applied (`tea.go`):\n\n```go\nif p.fps < 1 {\n    p.fps = defaultFPS   // 60\n} else if p.fps > maxFPS {\n    p.fps = maxFPS       // 120\n}\n```\n\nSo out-of-range values are silently normalized, not rejected:\n\n- **`fps < 1`** (including 0 or negative) \u2192 treated as **60**\n- **`fps > 120`** \u2192 capped at **120**\n- **1\u2013120** \u2192 used as-is\n\nThe resulting value becomes the renderer ticker interval (`tea.go`):\n\n```go\nframerate := time.Second / time.Duration(p.fps)\n```\n\ni.e. it's a maximum refresh rate, not a guaranteed target \u2014 frames are only flushed when needed.",
+   "errors": []
+  },
+  {
+   "task": "bubbletea-fps",
+   "variant": "with",
+   "rep": 2,
+   "model": "opencode-go/deepseek-v4.1-flash",
+   "opencode": "opencode v2.2.5",
+   "start_ms": 1793989523480,
+   "exit": 0,
+   "wall_s": 13.57,
+   "steps": 5,
+   "tool_calls": 4,
+   "tools": [
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo charmbracelet/bubbletea -c 'grep -rn \"WithFPS\\|fps\\|FPS\\|maxFPS\\|maxFps\" --include=\"*.go\" . | head -60'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo charmbracelet/bubbletea -c 'sed -n \"5,25p\" renderer.go; echo \"## options.go\"; sed -n \"140,160p\" options.go; echo \"## tea.go\"; sed -n \"490,505p\" tea.go; sed -n \"640,660p\" tea.go; sed -n \"1435,1450p\" tea.go'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo charmbracelet/bubbletea -c 'grep -n \"^func (p \\*Program)\" tea.go | sed -n \"1,30p\"'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo charmbracelet/bubbletea -c 'grep -n \"^func \" tea.go | sed -n \"1,30p\"'"
+    }
+   ],
+   "tokens": {
+    "input": 3183,
+    "output": 664,
+    "reasoning": 379,
+    "cache_read": 32512,
+    "cache_write": 0
+   },
+   "tokens_in_total": 35695,
+   "tokens_total": 36738,
+   "cost_usd": 0.0012007860000000001,
+   "correct": true,
+   "checks": [
+    true,
+    true
+   ],
+   "answer": "**Defaults (`renderer.go`):**\n\n```go\ndefaultFPS = 60\nmaxFPS     = 120\n```\n\n**`WithFPS` (`options.go`):** it only stores the value on the program:\n\n```go\nfunc WithFPS(fps int) ProgramOption {\n\treturn func(p *Program) {\n\t\tp.fps = fps\n\t}\n}\n```\n\n**Clamping (`tea.go`, inside `NewProgram`, after options are applied):**\n\n```go\nif p.fps < 1 {\n\tp.fps = defaultFPS   // 60\n} else if p.fps > maxFPS {\n\tp.fps = maxFPS       // 120\n}\n```\n\nSo out-of-range values are silently corrected rather than rejected:\n\n- **`fps < 1`** (including `0` or negative) \u2192 normalized to the default **60**.\n- **`fps > 120`** \u2192 capped at the maximum **120**.\n- **`1\u2013120`** \u2192 used as-is.\n\nThe value is then turned into a tick interval in `startRenderer`:\n\n```go\nframerate := time.Second / time.Duration(p.fps)\np.ticker = time.NewTicker(framerate) // or p.ticker.Reset(framerate)\n```\n\nOne detail: the correction happens in `NewProgram`, not in `WithFPS` itself, so it takes effect at program construction regardless of option order.",
+   "errors": []
+  },
+  {
+   "task": "bubbletea-fps",
+   "variant": "without",
+   "rep": 0,
+   "model": "opencode-go/deepseek-v4.1-flash",
+   "opencode": "opencode v2.2.5",
+   "start_ms": 1793989435776,
+   "exit": 0,
+   "wall_s": 14.455,
+   "steps": 5,
+   "tool_calls": 8,
+   "tools": [
+    {
+     "tool": "shell",
+     "label": "shell: local file ops",
+     "status": "completed",
+     "input": "ls -la /home/dev/work && ls /home/dev/work/* 2>/dev/null | head -50"
+    },
+    {
+     "tool": "webfetch",
+     "label": "webfetch",
+     "status": "completed",
+     "input": "https://raw.githubusercontent.com/charmbracelet/bubbletea/main/options.go"
+    },
+    {
+     "tool": "webfetch",
+     "label": "webfetch",
+     "status": "completed",
+     "input": "https://raw.githubusercontent.com/charmbracelet/bubbletea/main/tea.go"
+    },
+    {
+     "tool": "webfetch",
+     "label": "webfetch",
+     "status": "error",
+     "input": "https://raw.githubusercontent.com/charmbracelet/bubbletea/main/standard_renderer.go"
+    },
+    {
+     "tool": "webfetch",
+     "label": "webfetch",
+     "status": "completed",
+     "input": "https://raw.githubusercontent.com/charmbracelet/bubbletea/main/cursed_renderer.go"
+    },
+    {
+     "tool": "webfetch",
+     "label": "webfetch",
+     "status": "completed",
+     "input": "https://api.github.com/repos/charmbracelet/bubbletea/git/trees/main?recursive=1"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: local file ops",
+     "status": "completed",
+     "input": "head -c 300 /home/dev/.local/share/opencode/tool-output/tool_1b21a7cdf001T6jAF3p7bccfDh"
+    },
+    {
+     "tool": "webfetch",
+     "label": "webfetch",
+     "status": "completed",
+     "input": "https://raw.githubusercontent.com/charmbracelet/bubbletea/main/renderer.go"
+    }
+   ],
+   "tokens": {
+    "input": 23645,
+    "output": 842,
+    "reasoning": 519,
+    "cache_read": 64256,
+    "cache_write": 0
+   },
+   "tokens_in_total": 87901,
+   "tokens_total": 89262,
+   "cost_usd": 0.0045561180000000005,
+   "correct": true,
+   "checks": [
+    true,
+    true
+   ],
+   "answer": "In charmbracelet/bubbletea:\n\n- **Default frame rate:** `60` FPS (`defaultFPS = 60`)\n- **Maximum frame rate:** `120` FPS (`maxFPS = 120`)\n\nThese constants are in `renderer.go`:\n\n```go\nconst (\n\t// defaultFramerate specifies the maximum interval at which we should\n\t// update the view.\n\tdefaultFPS = 60\n\tmaxFPS     = 120\n)\n```\n\n`WithFPS` itself just stores the value:\n\n```go\nfunc WithFPS(fps int) ProgramOption {\n\treturn func(p *Program) {\n\t\tp.fps = fps\n\t}\n}\n```\n\nThe clamping happens in `NewProgram`:\n\n```go\nif p.fps < 1 {\n\tp.fps = defaultFPS\n} else if p.fps > maxFPS {\n\tp.fps = maxFPS\n}\n```\n\nSo out-of-range values are **silently clamped, not rejected**:\n\n- `fps < 1` (including `0` and negatives) \u2192 **60**\n- `fps > 120` \u2192 **120**\n- Valid values `1`\u2013`120` are used as-is\n\nThe value is then converted to a ticker interval with `time.Second / time.Duration(p.fps)`, which drives how often the renderer flushes frames. This is a maximum refresh rate, not a guaranteed frame rate; renders can be coalesced if nothing changed.",
+   "errors": []
+  },
+  {
+   "task": "bubbletea-fps",
+   "variant": "without",
+   "rep": 1,
+   "model": "opencode-go/deepseek-v4.1-flash",
+   "opencode": "opencode v2.2.5",
+   "start_ms": 1793989052072,
+   "exit": 0,
+   "wall_s": 21.072,
+   "steps": 5,
+   "tool_calls": 4,
+   "tools": [
+    {
+     "tool": "execute",
+     "label": "execute: raw file download",
+     "status": "completed",
+     "input": "const urls = [ \"https://raw.githubusercontent.com/charmbracelet/bubbletea/main/tea.go\", \"https://raw.githubusercontent.com/charmbracelet/bubbletea/main/options.go\", \"https://raw.githubusercontent.com/charmbracelet/bubbletea/main/standard_renderer.go\" ]; const results = await Promise.all(urls.map(async u => { try { const r = await fetch(u); return {u, status: r.status, text: await r.text()}; } catch (e) { return {u, error: String(e)}; } })); for (const r of results) { console.log(\"=== \" + r.u + \" status=\" + r.status + \" ===\"); if (r.text) { const lines = r.text.split(\"\\n\"); for (let i = 0; i < "
+    },
+    {
+     "tool": "execute",
+     "label": "execute: raw file download",
+     "status": "completed",
+     "input": "const urls = [ \"https://raw.githubusercontent.com/charmbracelet/bubbletea/main/tea.go\", \"https://raw.githubusercontent.com/charmbracelet/bubbletea/main/options.go\" ]; const [tea, opts] = await Promise.all(urls.map(u => fetch(u).then(r => r.text()))); function show(text, start, end) { const lines = text.split(\"\\n\"); for (let i = Math.max(0, start-1); i < Math.min(lines.length, end); i++) { console.log(String(i+1).padStart(4) + \": \" + lines[i]); } } console.log(\"--- tea.go const search ---\"); const tl = tea.split(\"\\n\"); for (let i=0;i<tl.length;i++) if (/defaultFPS|maxFPS/.test(tl[i])) console.l"
+    },
+    {
+     "tool": "execute",
+     "label": "execute: GitHub API",
+     "status": "completed",
+     "input": "const r = await fetch(\"https://api.github.com/repos/charmbracelet/bubbletea/git/trees/main?recursive=1\"); const data = await r.json(); const files = data.tree.filter(x => /\\.go$/.test(x.path) && /\\.go$/.test(x.path)); console.log(files.map(x=>x.path).join(\"\\n\"));"
+    },
+    {
+     "tool": "execute",
+     "label": "execute: raw file download",
+     "status": "completed",
+     "input": "for (const f of [\"renderer.go\",\"tea.go\"]) { const t = await fetch(\"https://raw.githubusercontent.com/charmbracelet/bubbletea/main/\"+f).then(r=>r.text()); const lines=t.split(\"\\n\"); console.log(\"=== \"+f+\" ===\"); for (let i=0;i<lines.length;i++) if (/defaultFPS|maxFPS/.test(lines[i])) console.log(String(i+1).padStart(4)+\": \"+lines[i]); } const r = await fetch(\"https://raw.githubusercontent.com/charmbracelet/bubbletea/main/renderer.go\"); const text=await r.text(); console.log(text.slice(0,2500));"
+    }
+   ],
+   "tokens": {
+    "input": 7858,
+    "output": 1208,
+    "reasoning": 817,
+    "cache_read": 29312,
+    "cache_write": 0
+   },
+   "tokens_in_total": 37170,
+   "tokens_total": 39195,
+   "cost_usd": 0.002481636,
+   "correct": true,
+   "checks": [
+    true,
+    true
+   ],
+   "answer": "In Bubble Tea:\n\n- **Default frame rate:** `60 FPS` (`defaultFPS`)\n- **Maximum frame rate:** `120 FPS` (`maxFPS`)\n\nThese are defined in [`renderer.go`](https://github.com/charmbracelet/bubbletea/blob/main/renderer.go):\n\n```go\nconst (\n\tdefaultFPS = 60\n\tmaxFPS     = 120\n)\n```\n\n`WithFPS` does **not** validate immediately; it simply stores the value:\n\n```go\nfunc WithFPS(fps int) ProgramOption {\n\treturn func(p *Program) {\n\t\tp.fps = fps\n\t}\n}\n```\n\nThen, when the program starts, out-of-range values are normalized:\n\n```go\nif p.fps < 1 {\n\tp.fps = defaultFPS\n} else if p.fps > maxFPS {\n\tp.fps = maxFPS\n}\n```\n\nSo:\n\n| Value passed to `WithFPS` | Result |\n|---|---|\n| `< 1` (including `0` or negative) | Reset to **60 FPS** |\n| `1`\u2013`120` | Used as-is |\n| `> 120` | Capped at **120 FPS** |\n\nThe renderer uses `time.Second / time.Duration(p.fps)` for its ticker, so this FPS value is the maximum rendering rate.",
+   "errors": []
+  },
+  {
+   "task": "bubbletea-fps",
+   "variant": "without",
+   "rep": 2,
+   "model": "opencode-go/deepseek-v4.1-flash",
+   "opencode": "opencode v2.2.5",
+   "start_ms": 1793989355297,
+   "exit": 0,
+   "wall_s": 13.574,
+   "steps": 4,
+   "tool_calls": 6,
+   "tools": [
+    {
+     "tool": "shell",
+     "label": "shell: local file ops",
+     "status": "completed",
+     "input": "ls /home/dev/work; find / -maxdepth 4 -type d -name bubbletea 2>/dev/null | head"
+    },
+    {
+     "tool": "webfetch",
+     "label": "webfetch",
+     "status": "completed",
+     "input": "https://raw.githubusercontent.com/charmbracelet/bubbletea/main/options.go"
+    },
+    {
+     "tool": "webfetch",
+     "label": "webfetch",
+     "status": "error",
+     "input": "https://raw.githubusercontent.com/charmbracelet/bubbletea/main/standard_renderer.go"
+    },
+    {
+     "tool": "webfetch",
+     "label": "webfetch",
+     "status": "completed",
+     "input": "https://raw.githubusercontent.com/charmbracelet/bubbletea/main/tea.go"
+    },
+    {
+     "tool": "webfetch",
+     "label": "webfetch",
+     "status": "completed",
+     "input": "https://raw.githubusercontent.com/charmbracelet/bubbletea/main/renderer.go"
+    },
+    {
+     "tool": "webfetch",
+     "label": "webfetch",
+     "status": "completed",
+     "input": "https://api.github.com/repos/charmbracelet/bubbletea/git/trees/main?recursive=1"
+    }
+   ],
+   "tokens": {
+    "input": 17997,
+    "output": 722,
+    "reasoning": 477,
+    "cache_read": 33024,
+    "cache_write": 0
+   },
+   "tokens_in_total": 51021,
+   "tokens_total": 52220,
+   "cost_usd": 0.003518022,
+   "correct": true,
+   "checks": [
+    true,
+    true
+   ],
+   "answer": "In Bubble Tea, the renderer's frame rate is bounded by these constants (in `renderer.go`):\n\n```go\nconst (\n\t// defaultFramerate specifies the maximum interval at which we should\n\t// update the view.\n\tdefaultFPS = 60\n\tmaxFPS     = 120\n)\n```\n\n- **Default:** 60 FPS (used when no FPS is set, or when the given value is below 1)\n- **Maximum:** 120 FPS\n\n`WithFPS` itself just stores the value on the `Program`:\n\n```go\nfunc WithFPS(fps int) ProgramOption {\n\treturn func(p *Program) {\n\t\tp.fps = fps\n\t}\n}\n```\n\nThe actual validation happens later in `NewProgram`:\n\n```go\nif p.fps < 1 {\n\tp.fps = defaultFPS\n} else if p.fps > maxFPS {\n\tp.fps = maxFPS\n}\n```\n\nSo out-of-range values are **silently clamped, not rejected**:\n\n- `WithFPS(0)`, `WithFPS(-5)`, etc. \u2192 falls back to **60 FPS**\n- `WithFPS(121)`, `WithFPS(1000)`, etc. \u2192 capped at **120 FPS**\n- Values in `1..120` are used as-is\n\nAfter clamping, the program converts the FPS to a ticker interval with `time.Second / time.Duration(p.fps)` and flushes the renderer on each tick.",
+   "errors": []
+  },
+  {
+   "task": "fzf-hscroll",
+   "variant": "with",
+   "rep": 0,
+   "model": "opencode-go/deepseek-v4.1-flash",
+   "opencode": "opencode v2.2.5",
+   "start_ms": 1793989350971,
+   "exit": 0,
+   "wall_s": 12.873,
+   "steps": 4,
+   "tool_calls": 3,
+   "tools": [
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo junegunn/fzf -c 'grep -rn \"hscroll-off\\|hscroll_off\\|HscrollOff\" --include=\"*.go\" . | head -50'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo junegunn/fzf -c 'sed -n \"110,122p\" src/options.go; echo \"## 760,775\"; sed -n \"760,775p\" src/options.go; echo \"## 2978,2992\"; sed -n \"2978,2992p\" src/options.go; echo \"## 3510,3530\"; sed -n \"3510,3530p\" src/options.go; echo \"## terminal hscroll use\"; grep -rn \"hscrollOff\" --include=\"*.go\" src | head -30'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo junegunn/fzf -c 'grep -n \"^func \" src/options.go | tail -40; echo \"## 4535,4560\"; sed -n \"4535,4560p\" src/terminal.go'"
+    }
+   ],
+   "tokens": {
+    "input": 2817,
+    "output": 776,
+    "reasoning": 34,
+    "cache_read": 23936,
+    "cache_write": 0
+   },
+   "tokens_in_total": 26753,
+   "tokens_total": 27563,
+   "cost_usd": 0.000980358,
+   "correct": true,
+   "checks": [
+    true,
+    true,
+    true
+   ],
+   "answer": "I'll look at the fzf source for the hscroll-off handling.\nThe check at line 3519 is inside `parseOptions`, so negative values are rejected.\n\n## Answer\n\n**Default: `10`** screen columns.\n\n**Negative values are rejected** \u2014 they are not clamped or silently handled. If `--hscroll-off` is given a negative integer, fzf fails during option parsing with the error `hscroll offset must be a non-negative integer` and exits instead of starting.\n\n### Source citations\n\n`src/options.go` \u2014 default value (`optionsWithDefaults` / `DefaultOptions` initializer):\n\n```go\n\t\tHscroll:      true,\n\t\tHscrollOff:   10,\n\t\tScrollOff:    3,\n```\n\nSame file, help text:\n\n```go\n    --hscroll-off=COLS       Number of screen columns to keep to the right of the\n                             highlighted substring (default: 10)\n```\n\nSame file, parsing and validation (inside `parseOptions`, after the loop; `parseOptions` starts at line 2536):\n\n```go\n\t\tcase \"--hscroll-off\":\n\t\t\tif opts.HscrollOff, err = nextInt(\"hscroll offset required\"); err != nil {\n\t\t\t\treturn err\n\t\t\t}\n...\n\tif opts.HscrollOff < 0 {\n\t\treturn errors.New(\"hscroll offset must be a non-negative integer\")\n\t}\n```\n\nSame file, field declaration:\n\n```go\n\tHscrollOff        int\n```\n\n### Where the value is used\n\n`src/terminal.go` (set from options at line 1069, `hscrollOff: opts.HscrollOff`, and declared at line 317) \u2014 it caps how far the view is shifted right when a match overflows the available width:\n\n```go\n\t\t\t\tmaxe = util.Constrain(maxe+min(maxWidth/2-ellipsisWidth, t.hscrollOff), 0, len(runes))\n```\n\nSo `--hscroll-off=0` is valid and effectively keeps no extra columns to the right of the highlighted substring, while any value below zero is a startup error.",
+   "errors": []
+  },
+  {
+   "task": "fzf-hscroll",
+   "variant": "with",
+   "rep": 1,
+   "model": "opencode-go/deepseek-v4.1-flash",
+   "opencode": "opencode v2.2.5",
+   "start_ms": 1793989228389,
+   "exit": 0,
+   "wall_s": 7.232,
+   "steps": 3,
+   "tool_calls": 2,
+   "tools": [
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo junegunn/fzf -c 'grep -rn \"hscroll\" --include=\"*.go\" . | head -50'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo junegunn/fzf -c 'grep -rn \"HscrollOff\\|hscroll-off\" src/*.go; echo \"## usage\"; sed -n \"110,120p\" src/options.go; echo \"## validate\"; sed -n \"3505,3525p\" src/options.go; echo \"## scroll logic\"; sed -n \"4535,4570p\" src/terminal.go'"
+    }
+   ],
+   "tokens": {
+    "input": 1500,
+    "output": 424,
+    "reasoning": 42,
+    "cache_read": 17664,
+    "cache_write": 0
+   },
+   "tokens_in_total": 19164,
+   "tokens_total": 19630,
+   "cost_usd": 0.000557592,
+   "correct": true,
+   "checks": [
+    true,
+    true,
+    true
+   ],
+   "answer": "The default is **10** screen columns, and negative values are rejected.\n\n**Default** \u2014 `src/options.go:768`:\n```go\nHscrollOff:   10,\n```\nThis matches the help text in `src/options.go:116-117`: `--hscroll-off=COLS ... (default: 10)`.\n\n**Negative values** \u2014 `src/options.go:3519-3521`:\n```go\nif opts.HscrollOff < 0 {\n    return errors.New(\"hscroll offset must be a non-negative integer\")\n}\n```\n\nSo fzf does not accept a negative value: option parsing fails and exits with the error `hscroll offset must be a non-negative integer` (the same validation pattern as `HeaderLines` and `ScrollOff`).\n\nThe value is stored in `Terminal.hscrollOff` (`src/terminal.go:1069`) and used during horizontal scrolling at `src/terminal.go:4551`, where the shift is clamped with `util.Constrain(..., 0, len(runes))`.",
+   "errors": []
+  },
+  {
+   "task": "fzf-hscroll",
+   "variant": "with",
+   "rep": 2,
+   "model": "opencode-go/deepseek-v4.1-flash",
+   "opencode": "opencode v2.2.5",
+   "start_ms": 1793989440539,
+   "exit": 0,
+   "wall_s": 8.48,
+   "steps": 3,
+   "tool_calls": 2,
+   "tools": [
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo junegunn/fzf -c 'grep -rn \"hscroll-off\\|hscroll_offset\\|HscrollOff\" --include=\"*.go\" . | head -50'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo junegunn/fzf -c 'sed -n \"110,125p\" src/options.go; echo \"## default\"; sed -n \"760,775p\" src/options.go; echo \"## validation\"; sed -n \"3510,3530p\" src/options.go; echo \"## terminal usage\"; grep -n \"hscrollOff\" src/terminal.go'"
+    }
+   ],
+   "tokens": {
+    "input": 1042,
+    "output": 421,
+    "reasoning": 43,
+    "cache_read": 17408,
+    "cache_write": 0
+   },
+   "tokens_in_total": 18450,
+   "tokens_total": 18914,
+   "cost_usd": 0.0004869239999999999,
+   "correct": true,
+   "checks": [
+    true,
+    true,
+    true
+   ],
+   "answer": "**Default:** `10` \u2014 set in the option defaults in `src/options.go` (`HscrollOff: 10,`, ~line 768), and documented at ~line 116: `--hscroll-off=COLS ... (default: 10)`.\n\n**Negative values:** fzf does not accept them. During option post-processing in `src/options.go` it validates:\n\n```go\nif opts.HscrollOff < 0 {\n    return errors.New(\"hscroll offset must be a non-negative integer\")\n}\n```\n\n(~line 3519). So `--hscroll-off=-1` makes fzf exit with that error rather than falling back to some behavior. For reference, the value is used in `src/terminal.go` (line ~4551) to keep extra columns visible to the right of the highlighted substring.\n\nSource file: `src/options.go` (defaults ~L768, help text ~L116, validation ~L3519); usage in `src/terminal.go` ~L4551.",
+   "errors": []
+  },
+  {
+   "task": "fzf-hscroll",
+   "variant": "without",
+   "rep": 0,
+   "model": "opencode-go/deepseek-v4.1-flash",
+   "opencode": "opencode v2.2.5",
+   "start_ms": 1793989281708,
+   "exit": 0,
+   "wall_s": 223.46,
+   "steps": 24,
+   "tool_calls": 29,
+   "tools": [
+    {
+     "tool": "shell",
+     "label": "shell: local file ops",
+     "status": "completed",
+     "input": "ls -la /home/dev/work && find /home/dev/work -maxdepth 2 -iname '*fzf*' 2>/dev/null | head -50"
+    },
+    {
+     "tool": "webfetch",
+     "label": "webfetch",
+     "status": "completed",
+     "input": "https://raw.githubusercontent.com/junegunn/fzf/master/src/options.go"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: raw file download",
+     "status": "completed",
+     "input": "cd /tmp/opencode && curl -fsSL https://raw.githubusercontent.com/junegunn/fzf/master/src/options.go -o fzf-options.go && grep -n -i 'hscroll' fzf-options.go"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: raw file download",
+     "status": "completed",
+     "input": "cd /tmp/opencode && curl -fsSL https://raw.githubusercontent.com/junegunn/fzf/master/src/terminal.go -o fzf-terminal.go && grep -n -i 'hscroll' fzf-terminal.go | head -50"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: raw file download",
+     "status": "completed",
+     "input": "ls -ld /tmp/opencode; mkdir -p /tmp/opencode/fzf-src && cd /tmp/opencode/fzf-src && curl -fsSL https://raw.githubusercontent.com/junegunn/fzf/master/src/options.go -o options.go; echo status:$?; ls -l"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: raw file download",
+     "status": "completed",
+     "input": "mkdir -p /home/dev/work/fzf-src && cd /home/dev/work/fzf-src && curl -fsSL https://raw.githubusercontent.com/junegunn/fzf/master/src/options.go -o options.go && grep -n -i 'hscroll' options.go"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: raw file download",
+     "status": "completed",
+     "input": "mkdir -p /home/dev/work/fzf-src && cd /home/dev/work/fzf-src && curl -fsSL https://raw.githubusercontent.com/junegunn/fzf/master/src/terminal.go -o terminal.go && grep -n -i 'hscroll' terminal.go | head -50"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: local file ops",
+     "status": "completed",
+     "input": "cd /home/dev/work/fzf-src && sed -n '2975,2995p' options.go && sed -n '3505,3528p' options.go"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: local file ops",
+     "status": "completed",
+     "input": "cd /home/dev/work/fzf-src && sed -n '4320,4350p' terminal.go && sed -n '4535,4575p' terminal.go"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: git clone",
+     "status": "completed",
+     "input": "cd /home/dev/work && git clone -q --filter=blob:none https://github.com/junegunn/fzf.git fzf-repo && cd fzf-repo && git log -n 5 --oneline -- src/options.go && grep -n -i 'hscroll' src/options.go"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: git (other)",
+     "status": "completed",
+     "input": "cd /home/dev/work/fzf-repo && git tag --sort=-v:refname | head -15 && echo --- && git describe --tags --always"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: git (other)",
+     "status": "completed",
+     "input": "cd /home/dev/work/fzf-repo && git log -S 'hscroll offset must be a non-negative integer' --oneline -- src/options.go && echo --- && git log -S 'HscrollOff: 10' --oneline -- src/options.go | tail -10 && echo --- && grep -rn -i 'hscroll-off' man/ doc/ shell/ README.md 2>/dev/null | head -30"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: git (other)",
+     "status": "completed",
+     "input": "cd /home/dev/work/fzf-repo && git show v0.74.5:src/options.go | grep -n -i -A3 -B3 'HscrollOff' | head -60"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: local file ops",
+     "status": "completed",
+     "input": "cd /home/dev/work/fzf-repo && grep -rn -i 'hscroll-off' man/ doc/ shell/ README.md 2>/dev/null | head -30"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: git (other)",
+     "status": "completed",
+     "input": "cd /home/dev/work/fzf-repo && for t in v0.20.0 v0.24.0 v0.27.0 v0.30.0 v0.35.0 v0.40.0 v0.45.0 v0.50.0 v0.55.0 v0.60.0 v0.65.0 v0.70.0; do echo \"== $t ==\"; git show $t:src/options.go 2>/dev/null | grep -n -i 'hscroll' | grep -E 'HscrollOff|hscroll-off|non-negative|negative' ; done"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: git (other)",
+     "status": "completed",
+     "input": "cd /home/dev/work/fzf-repo && for t in v0.20.0 v0.30.0 v0.40.0 v0.45.0 v0.50.0; do echo \"== $t ==\"; git ls-tree -r --name-only $t | grep -E 'options|opts' | head; git show $t:src/options.go 2>/dev/null | grep -n -i 'hscroll' | head; done"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: local file ops",
+     "status": "completed",
+     "input": "cd /home/dev/work/fzf-repo && ls && find . -maxdepth 3 -type f | grep -i -E 'man|doc|readme' | head -30 && grep -rn -i 'hscroll' --include='*.1' --include='*.md' --include='*.txt' . | head -40"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: local file ops",
+     "status": "completed",
+     "input": "cd /home/dev/work/fzf-repo && sed -n '720,742p' man/man1/fzf.1 && sed -n '3135,3150p' CHANGELOG.md"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: local file ops",
+     "status": "completed",
+     "input": "cd /home/dev/work/fzf-repo && grep -rn 'HscrollOff\\|hscrollOff\\|hscroll offset' --include='*.go' . && echo '--- all hscroll-off ---' && grep -rn 'hscroll-off' . --exclude-dir=.git"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: raw file download",
+     "status": "completed",
+     "input": "cd /home/dev/work/fzf-src && for v in 0.20.0 0.24.0 0.30.0 0.40.0 0.50.0; do echo \"== $v ==\"; curl -fsSL \"https://raw.githubusercontent.com/junegunn/fzf/$v/src/options.go\" | grep -n -i -A2 -B2 'HscrollOff' | head -20; done"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: local file ops",
+     "status": "completed",
+     "input": "cd /home/dev/work/fzf-repo && (go run . --hscroll-off=-1 </dev/null 2>&1 || true) | head -20"
+    },
+    {
+     "tool": "websearch",
+     "label": "websearch",
+     "status": "completed",
+     "input": "junegunn fzf --hscroll-off negative value behavior source options.go"
+    },
+    {
+     "tool": "webfetch",
+     "label": "webfetch",
+     "status": "completed",
+     "input": "https://junegunn.github.io/fzf/reference/"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: local file ops",
+     "status": "completed",
+     "input": "cd /home/dev/work/fzf-repo && grep -rn 'parseOptions\\|ParseOptions' main.go src/*.go | head -20 && sed -n '1,80p' main.go"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: local file ops",
+     "status": "completed",
+     "input": "cd /home/dev/work/fzf-repo && grep -rn 'ExitError' src/*.go | head"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: local file ops",
+     "status": "completed",
+     "input": "cd /home/dev/work/fzf-repo && sed -n '790,830p' test/test_core.rb && grep -rn -i 'hscroll-off.*-\\|negative.*hscroll\\|hscroll.*negative' test src | head -20"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: raw file download",
+     "status": "completed",
+     "input": "cd /home/dev/work/fzf-src && curl -fsSL https://raw.githubusercontent.com/junegunn/fzf/0.50.0/src/options.go -o options-0.50.go && grep -n -i 'non-negative\\|HscrollOff' options-0.50.go | head -30 && echo '--- 0.55 ---' && curl -fsSL https://raw.githubusercontent.com/junegunn/fzf/0.55.0/src/options.go -o options-0.55.go && grep -n -i 'non-negative\\|HscrollOff' options-0.55.go | head -30"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: raw file download",
+     "status": "completed",
+     "input": "cd /home/dev/work/fzf-src && for v in 0.20.0 0.24.0 0.30.0 0.40.0 0.45.0; do echo \"== $v ==\"; curl -fsSL \"https://raw.githubusercontent.com/junegunn/fzf/$v/src/options.go\" | grep -n -i -B1 -A1 'hscroll offset must be a non-negative'; done"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: git (other)",
+     "status": "completed",
+     "input": "cd /home/dev/work/fzf-repo && git show HEAD:src/options.go | sed -n '764,770p' && echo '...' && git show HEAD:src/options.go | sed -n '3516,3522p'"
+    }
+   ],
+   "tokens": {
+    "input": 39178,
+    "output": 3060,
+    "reasoning": 4235,
+    "cache_read": 712960,
+    "cache_write": 0
+   },
+   "tokens_in_total": 752138,
+   "tokens_total": 759433,
+   "cost_usd": 0.012392580000000002,
+   "correct": true,
+   "checks": [
+    true,
+    true,
+    true
+   ],
+   "answer": "The default is **10 columns**.\n\nA negative value is **rejected during option parsing** \u2014 fzf exits with an error rather than clamping it to zero or falling back to the default:\n\n```text\nhscroll offset must be a non-negative integer\n```\n\nSource: [`src/options.go`](https://github.com/junegunn/fzf/blob/master/src/options.go)\n\n- `defaultOptions()` sets `HscrollOff: 10` (line 768).\n- `parseOptions()` contains the check (lines 3519\u20133520):\n\n```go\nif opts.HscrollOff < 0 {\n    return errors.New(\"hscroll offset must be a non-negative integer\")\n}\n```",
+   "errors": []
+  },
+  {
+   "task": "fzf-hscroll",
+   "variant": "without",
+   "rep": 1,
+   "model": "opencode-go/deepseek-v4.1-flash",
+   "opencode": "opencode v2.2.5",
+   "start_ms": 1793989105940,
+   "exit": 0,
+   "wall_s": 20.25,
+   "steps": 9,
+   "tool_calls": 8,
+   "tools": [
+    {
+     "tool": "execute",
+     "label": "execute: raw file download",
+     "status": "completed",
+     "input": "const r = await fetch(\"https://raw.githubusercontent.com/junegunn/fzf/master/src/options.go\"); const t = await r.text(); const lines = t.split(\"\\n\"); lines.forEach((l,i)=>{ if(/hscroll/i.test(l)) console.log((i+1)+\": \"+l); });"
+    },
+    {
+     "tool": "execute",
+     "label": "execute: raw file download",
+     "status": "completed",
+     "input": "const r = await fetch(\"https://raw.githubusercontent.com/junegunn/fzf/master/src/options.go\"); const t = await r.text(); const lines = t.split(\"\\n\"); function show(a,b){ for(let i=a;i<=b;i++) console.log(i+\": \"+(lines[i-1]??\"\")); } show(112,120); console.log(\"---\"); show(762,772); console.log(\"---\"); show(2978,2990); console.log(\"---\"); show(3512,3524);"
+    },
+    {
+     "tool": "execute",
+     "label": "execute: raw file download",
+     "status": "completed",
+     "input": "const r = await fetch(\"https://raw.githubusercontent.com/junegunn/fzf/master/src/options.go\"); const t = await r.text(); const lines = t.split(\"\\n\"); for(let i=3500;i>=3420;i--){ if(/^func /.test(lines[i-1])){ console.log(i+\": \"+lines[i-1]); break; } }"
+    },
+    {
+     "tool": "execute",
+     "label": "execute: raw file download",
+     "status": "completed",
+     "input": "const r = await fetch(\"https://raw.githubusercontent.com/junegunn/fzf/master/src/options.go\"); const t = await r.text(); const lines = t.split(\"\\n\"); for(let i=3519;i>3000;i--){ if(/^func /.test(lines[i-1])){ console.log(i+\": \"+lines[i-1]); break; } }"
+    },
+    {
+     "tool": "execute",
+     "label": "execute: raw file download",
+     "status": "completed",
+     "input": "const r = await fetch(\"https://raw.githubusercontent.com/junegunn/fzf/master/src/options.go\"); const t = await r.text(); const lines = t.split(\"\\n\"); lines.forEach((l,i)=>{ if(/^func .*[Oo]ptions/.test(l) && i>3000) console.log((i+1)+\": \"+l); });"
+    },
+    {
+     "tool": "execute",
+     "label": "execute: raw file download",
+     "status": "completed",
+     "input": "const r = await fetch(\"https://raw.githubusercontent.com/junegunn/fzf/master/src/options.go\"); const t = await r.text(); const lines = t.split(\"\\n\"); for(let i=3715;i<=3745;i++) console.log(i+\": \"+(lines[i-1]??\"\"));"
+    },
+    {
+     "tool": "execute",
+     "label": "execute: raw file download",
+     "status": "completed",
+     "input": "const r = await fetch(\"https://raw.githubusercontent.com/junegunn/fzf/master/src/options.go\"); const t = await r.text(); const lines = t.split(\"\\n\"); lines.forEach((l,i)=>{ if(/validateOptions\\(/.test(l)) console.log((i+1)+\": \"+l.trim()); });"
+    },
+    {
+     "tool": "execute",
+     "label": "execute: raw file download",
+     "status": "completed",
+     "input": "const r = await fetch(\"https://raw.githubusercontent.com/junegunn/fzf/master/src/options.go\"); const t = await r.text(); const lines = t.split(\"\\n\"); for(let i=3960;i<=3978;i++) console.log(i+\": \"+(lines[i-1]??\"\"));"
+    }
+   ],
+   "tokens": {
+    "input": 6811,
+    "output": 1139,
+    "reasoning": 444,
+    "cache_read": 56064,
+    "cache_write": 0
+   },
+   "tokens_in_total": 62875,
+   "tokens_total": 64458,
+   "cost_usd": 0.0021396419999999998,
+   "correct": true,
+   "checks": [
+    true,
+    true,
+    true
+   ],
+   "answer": "In current `master` of junegunn/fzf:\n\n- **Default:** `--hscroll-off` defaults to **10** columns.\n  - `src/options.go:768` \u2014 `HscrollOff: 10,` in the default `Options`\n  - The help text at `src/options.go:116-117` also states: `Number of screen columns to keep to the right of the highlighted substring (default: 10)`\n\n- **If negative:** fzf rejects it with an error rather than treating it as a special value.\n  - `src/options.go:3519-3520` in `validateOptions`:\n    ```go\n    if opts.HscrollOff < 0 {\n        return errors.New(\"hscroll offset must be a non-negative integer\")\n    }\n    ```\n  - This validation is invoked at the end of `ParseOptions` (`src/options.go:3972`), so startup fails with `hscroll offset must be a non-negative integer`.\n\nSource: [`src/options.go`](https://github.com/junegunn/fzf/blob/master/src/options.go)",
+   "errors": []
+  },
+  {
+   "task": "fzf-hscroll",
+   "variant": "without",
+   "rep": 2,
+   "model": "opencode-go/deepseek-v4.1-flash",
+   "opencode": "opencode v2.2.5",
+   "start_ms": 1793989074760,
+   "exit": 0,
+   "wall_s": 15.817,
+   "steps": 6,
+   "tool_calls": 5,
+   "tools": [
+    {
+     "tool": "webfetch",
+     "label": "webfetch",
+     "status": "completed",
+     "input": "https://raw.githubusercontent.com/junegunn/fzf/master/src/options.go"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: local file ops",
+     "status": "completed",
+     "input": "grep -n -i \"hscroll\" /home/dev/.local/share/opencode/tool-output/tool_1b214e92f0017UZz33cow6QCMZ"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: local file ops",
+     "status": "completed",
+     "input": "sed -n '2978,2992p;3512,3525p' /home/dev/.local/share/opencode/tool-output/tool_1b214e92f0017UZz33cow6QCMZ"
+    },
+    {
+     "tool": "webfetch",
+     "label": "webfetch",
+     "status": "error",
+     "input": "https://raw.githubusercontent.com/junegunn/fzf/master/src/main.go"
+    },
+    {
+     "tool": "webfetch",
+     "label": "webfetch",
+     "status": "completed",
+     "input": "https://raw.githubusercontent.com/junegunn/fzf/master/main.go"
+    }
+   ],
+   "tokens": {
+    "input": 16841,
+    "output": 602,
+    "reasoning": 665,
+    "cache_read": 96128,
+    "cache_write": 0
+   },
+   "tokens_in_total": 112969,
+   "tokens_total": 114236,
+   "cost_usd": 0.003574734,
+   "correct": true,
+   "checks": [
+    true,
+    true,
+    true
+   ],
+   "answer": "**Default:** `--hscroll-off` defaults to **10** columns.\n\n**Negative values:** fzf rejects them during option parsing rather than clamping or treating them as \u201cunlimited.\u201d `ParseOptions` returns the error:\n\n```\nhscroll offset must be a non-negative integer\n```\n\nand `main` exits with `ExitError` (status 2), printing that message to stderr.\n\n**Source:** [`src/options.go`](https://github.com/junegunn/fzf/blob/master/src/options.go)\n\n- Default set in `defaultOptions()`: `HscrollOff: 10` (line 768)\n- Option parsing: `case \"--hscroll-off\":` reads the integer (lines 2985\u20132987)\n- Validation: `if opts.HscrollOff < 0 { return errors.New(\"hscroll offset must be a non-negative integer\") }` (lines 3519\u20133521)\n\nThe error is then surfaced by `main.go`, which calls `exit(fzf.ExitError, err)` when `fzf.ParseOptions` fails.",
+   "errors": []
+  },
+  {
+   "task": "httpx-defaults",
+   "variant": "with",
+   "rep": 0,
+   "model": "opencode-go/deepseek-v4.1-flash",
+   "opencode": "opencode v2.2.5",
+   "start_ms": 1793989095758,
+   "exit": 0,
+   "wall_s": 9.169,
+   "steps": 3,
+   "tool_calls": 2,
+   "tools": [
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo encode/httpx -c 'ls; echo \"## config\"; sed -n \"1,120p\" httpx/_config.py'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo encode/httpx -c 'grep -n -B3 -A12 \"DEFAULT_TIMEOUT_CONFIG\\|DEFAULT_LIMITS\\|DEFAULT_MAX_REDIRECTS\\|max_keepalive\" httpx/_config.py'"
+    }
+   ],
+   "tokens": {
+    "input": 5951,
+    "output": 432,
+    "reasoning": 187,
+    "cache_read": 14336,
+    "cache_write": 0
+   },
+   "tokens_in_total": 20287,
+   "tokens_total": 20906,
+   "cost_usd": 0.001307058,
+   "correct": true,
+   "checks": [
+    true,
+    true,
+    true,
+    true
+   ],
+   "answer": "All four defaults live in **`httpx/_config.py`** in the `encode/httpx` repo (the same file that defines `Timeout` and `Limits`).\n\n```python\nDEFAULT_TIMEOUT_CONFIG = Timeout(timeout=5.0)\nDEFAULT_LIMITS = Limits(max_connections=100, max_keepalive_connections=20)\nDEFAULT_MAX_REDIRECTS = 20\n```\n\n- **Timeout:** 5.0 s, applied to connect, read, write, and pool operations (`Timeout(timeout=5.0)` spreads 5.0 to all four).\n- **Connection pool limits:** `max_connections=100`, `max_keepalive_connections=20`. `keepalive_expiry` isn't passed here, so it falls back to the `Limits.__init__` default of `5.0` seconds.\n- **Max redirects:** 20.\n\nNote that `Limits()`'s own argument defaults are `None`/`None`/`5.0` (i.e. unbounded when constructed directly); the 100/20 values apply only via `DEFAULT_LIMITS`, which is what `Client` uses when you don't pass `limits=`.",
+   "errors": []
+  },
+  {
+   "task": "httpx-defaults",
+   "variant": "with",
+   "rep": 1,
+   "model": "opencode-go/deepseek-v4.1-flash",
+   "opencode": "opencode v2.2.5",
+   "start_ms": 1793989285564,
+   "exit": 0,
+   "wall_s": 8.515,
+   "steps": 3,
+   "tool_calls": 2,
+   "tools": [
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo encode/httpx -c 'grep -rn \"DEFAULT_TIMEOUT_CONFIG\\|DEFAULT_LIMITS\\|DEFAULT_MAX_REDIRECTS\" --include=\"*.py\" .; echo \"## tree\"; tree -L 2 httpx | head -40'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo encode/httpx -c 'grep -n -A 40 \"class Timeout\" httpx/_config.py; echo \"## limits\"; grep -n -A 35 \"class Limits\" httpx/_config.py; echo \"## defaults\"; sed -n \"240,255p\" httpx/_config.py'"
+    }
+   ],
+   "tokens": {
+    "input": 2417,
+    "output": 505,
+    "reasoning": 93,
+    "cache_read": 18048,
+    "cache_write": 0
+   },
+   "tokens_in_total": 20465,
+   "tokens_total": 21063,
+   "cost_usd": 0.000775494,
+   "correct": true,
+   "checks": [
+    true,
+    true,
+    true,
+    true
+   ],
+   "answer": "All three are defined in **`httpx/_config.py`** (the package's `__init__` re-exports some of them; the constants themselves live there).\n\n| Setting | Default | Definition |\n|---|---|---|\n| Timeout | **5.0 seconds** for connect, read, write, and pool | `DEFAULT_TIMEOUT_CONFIG = Timeout(timeout=5.0)` |\n| Connection pool | **max_connections=100**, **max_keepalive_connections=20**, **keepalive_expiry=5.0s** | `DEFAULT_LIMITS = Limits(max_connections=100, max_keepalive_connections=20)` |\n| Max redirects | **20** | `DEFAULT_MAX_REDIRECTS = 20` |\n\nNotes:\n- `Timeout(5.0)` sets a 5s timeout on all four operations (`connect`, `read`, `write`, `pool`).\n- `Limits` also has a `keepalive_expiry` default of `5.0` seconds, set in the `Limits.__init__` signature rather than in the constant above.\n- These constants are the module-level defaults used in the signatures of `Client`, `AsyncClient`, and the top-level `httpx.get()`/`post()`/etc. functions (in `_client.py` and `_api.py`).",
+   "errors": []
+  },
+  {
+   "task": "httpx-defaults",
+   "variant": "with",
+   "rep": 2,
+   "model": "opencode-go/deepseek-v4.1-flash",
+   "opencode": "opencode v2.2.5",
+   "start_ms": 1793989091669,
+   "exit": 0,
+   "wall_s": 11.471,
+   "steps": 3,
+   "tool_calls": 2,
+   "tools": [
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo encode/httpx -c 'tree -L 2 -d; echo \"## timeout\"; grep -rn \"DEFAULT_TIMEOUT_CONFIG\\|class Timeout\" httpx/_config.py httpx/_client.py | head -40; echo \"## limits\"; grep -rn -A 30 \"class Limits\" httpx/_config.py; echo \"## redirects\"; grep -rn \"max_redirects\" httpx/_client.py | head -20'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo encode/httpx -c 'grep -rn \"DEFAULT_MAX_REDIRECTS\\s*=\\|DEFAULT_LIMITS\\s*=\\|DEFAULT_CONNECTION_LIMITS\\|Limits()\" httpx; echo \"## config tail\"; sed -n \"240,300p\" httpx/_config.py; echo \"## client limits\"; grep -n -B3 -A12 \"limits: Limits\" httpx/_client.py | head -80'"
+    }
+   ],
+   "tokens": {
+    "input": 5731,
+    "output": 653,
+    "reasoning": 183,
+    "cache_read": 14464,
+    "cache_write": 0
+   },
+   "tokens_in_total": 20195,
+   "tokens_total": 21031,
+   "cost_usd": 0.001404642,
+   "correct": true,
+   "checks": [
+    true,
+    true,
+    true,
+    true
+   ],
+   "answer": "According to the current `encode/httpx` source:\n\n| Setting | Default | Where defined |\n|---|---|---|\n| **Timeout** | 5.0 seconds (connect, read, write, and pool) | `DEFAULT_TIMEOUT_CONFIG = Timeout(timeout=5.0)` |\n| **Connection pool** | 100 max connections, 20 max keepalive connections, 5.0s keepalive expiry | `DEFAULT_LIMITS = Limits(max_connections=100, max_keepalive_connections=20)` |\n| **Max redirects** | 20 | `DEFAULT_MAX_REDIRECTS = 20` |\n\nAll three constants are defined in **`httpx/_config.py`** (around lines 246\u2013248):\n\n```python\nDEFAULT_TIMEOUT_CONFIG = Timeout(timeout=5.0)\nDEFAULT_LIMITS = Limits(max_connections=100, max_keepalive_connections=20)\nDEFAULT_MAX_REDIRECTS = 20\n```\n\nA few details:\n\n- `Timeout(timeout=5.0)` sets all four individual timeouts (`connect`, `read`, `write`, `pool`) to 5.0s.\n- The `Limits` class itself defaults `max_connections` and `max_keepalive_connections` to `None`, but `DEFAULT_LIMITS` explicitly supplies 100/20. `keepalive_expiry` defaults to 5.0.\n- These constants are imported and used as the default parameters of `Client` and `AsyncClient` in **`httpx/_client.py`**. Note that `follow_redirects` defaults to `False`, so redirects are not followed unless enabled.",
+   "errors": []
+  },
+  {
+   "task": "httpx-defaults",
+   "variant": "without",
+   "rep": 0,
+   "model": "opencode-go/deepseek-v4.1-flash",
+   "opencode": "opencode v2.2.5",
+   "start_ms": 1793989158815,
+   "exit": 0,
+   "wall_s": 19.33,
+   "steps": 6,
+   "tool_calls": 7,
+   "tools": [
+    {
+     "tool": "shell",
+     "label": "shell: other",
+     "status": "completed",
+     "input": "ls /home/dev/work"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: local file ops",
+     "status": "completed",
+     "input": "python3 -c \"import httpx, inspect, os; print(httpx.__version__); print(os.path.dirname(httpx.__file__))\" 2>&1 | head -20"
+    },
+    {
+     "tool": "webfetch",
+     "label": "webfetch",
+     "status": "completed",
+     "input": "https://raw.githubusercontent.com/encode/httpx/master/httpx/_config.py"
+    },
+    {
+     "tool": "webfetch",
+     "label": "webfetch",
+     "status": "completed",
+     "input": "https://raw.githubusercontent.com/encode/httpx/master/httpx/_client.py"
+    },
+    {
+     "tool": "webfetch",
+     "label": "webfetch",
+     "status": "completed",
+     "input": "https://raw.githubusercontent.com/encode/httpx/master/httpx/__version__.py"
+    },
+    {
+     "tool": "execute",
+     "label": "execute: other HTTP",
+     "status": "completed",
+     "input": "const r = await fetch(\"https://pypi.org/pypi/httpx/json\"); const j = await r.json(); return {version: j.info.version, releases: Object.keys(j.releases).slice(-5)};"
+    },
+    {
+     "tool": "execute",
+     "label": "execute: raw file download",
+     "status": "completed",
+     "input": "const r = await fetch(\"https://raw.githubusercontent.com/encode/httpx/master/httpx/_config.py\"); const t = await r.text(); const lines = t.split(\"\\n\"); const hits = lines.map((l,i)=>[i+1,l]).filter(([i,l])=>l.startsWith(\"DEFAULT_\")); return hits;"
+    }
+   ],
+   "tokens": {
+    "input": 15588,
+    "output": 873,
+    "reasoning": 677,
+    "cache_read": 75392,
+    "cache_write": 0
+   },
+   "tokens_in_total": 90980,
+   "tokens_total": 92530,
+   "cost_usd": 0.0034943759999999996,
+   "correct": true,
+   "checks": [
+    true,
+    true,
+    true,
+    true
+   ],
+   "answer": "All three defaults live at the bottom of **`httpx/_config.py`** (lines 246\u2013248 in the current `master`, which is still httpx 0.28.1 \u2014 the latest PyPI release):\n\n```python\nDEFAULT_TIMEOUT_CONFIG = Timeout(timeout=5.0)\nDEFAULT_LIMITS = Limits(max_connections=100, max_keepalive_connections=20)\nDEFAULT_MAX_REDIRECTS = 20\n```\n\n| Setting | Default | Notes |\n|---|---|---|\n| **Timeout** | **5.0 s** | Applies to `connect`, `read`, `write`, and `pool` (i.e. `Timeout(5.0)`) |\n| **Connection pool** | **`max_connections=100`**, **`max_keepalive_connections=20`** | `keepalive_expiry` defaults to **5.0 s**; `None` for the two connection counts means \"unlimited\" if set explicitly |\n| **Max redirects** | **20** | Only relevant when redirects are followed \u2014 `follow_redirects` itself defaults to `False` |\n\nThe constants are imported and used as parameter defaults in `httpx/_client.py` (`timeout=DEFAULT_TIMEOUT_CONFIG`, `limits=DEFAULT_LIMITS`, `max_redirects=DEFAULT_MAX_REDIRECTS`), but the values themselves are defined in `httpx/_config.py`.\n\nSources: [httpx/_config.py](https://github.com/encode/httpx/blob/master/httpx/_config.py#L246-L248), [httpx/_client.py](https://github.com/encode/httpx/blob/master/httpx/_client.py)",
+   "errors": []
+  },
+  {
+   "task": "httpx-defaults",
+   "variant": "without",
+   "rep": 1,
+   "model": "opencode-go/deepseek-v4.1-flash",
+   "opencode": "opencode v2.2.5",
+   "start_ms": 1793989338888,
+   "exit": 0,
+   "wall_s": 15.637,
+   "steps": 5,
+   "tool_calls": 4,
+   "tools": [
+    {
+     "tool": "execute",
+     "label": "execute: raw file download",
+     "status": "completed",
+     "input": "const files = await Promise.all([ fetch(\"https://raw.githubusercontent.com/encode/httpx/master/httpx/_config.py\").then(r => r.text()), fetch(\"https://raw.githubusercontent.com/encode/httpx/master/httpx/_client.py\").then(r => r.text()), ]); for (const f of files) { const lines = f.split(\"\\n\"); lines.forEach((l, i) => { if (/DEFAULT_(TIMEOUT_CONFIG|LIMITS|MAX_REDIRECTS)/.test(l) && !l.trim().startsWith(\"#\")) { console.log(`${i+1}: ${l}`); for (let j = 1; j <= 4; j++) if (lines[i+j] && !/^DEFAULT_/.test(lines[i+j])) console.log(` ${i+1+j}: ${lines[i+j]}`); } }); console.log(\"----\"); }"
+    },
+    {
+     "tool": "execute",
+     "label": "execute: raw file download",
+     "status": "completed",
+     "input": "const f = await fetch(\"https://raw.githubusercontent.com/encode/httpx/master/httpx/_config.py\").then(r => r.text()); const lines = f.split(\"\\n\"); const start = lines.findIndex(l => l.includes(\"class Timeout(\")); console.log(lines.slice(start, start+60).map((l,i)=>`${start+i+1}: ${l}`).join(\"\\n\")); const s2 = lines.findIndex(l => l.includes(\"class Limits(\")); console.log(lines.slice(s2, s2+40).map((l,i)=>`${s2+i+1}: ${l}`).join(\"\\n\"));"
+    },
+    {
+     "tool": "execute",
+     "label": "execute: raw file download",
+     "status": "completed",
+     "input": "const f = await fetch(\"https://raw.githubusercontent.com/encode/httpx/master/httpx/_config.py\").then(r => r.text()); console.log(\"len\", f.length, \"has class Timeout\", f.includes(\"class Timeout\")); const lines = f.split(\"\\n\"); lines.forEach((l,i)=>{ if(l.startsWith(\"class Timeout\")||l.startsWith(\"class Limits\")||l.includes(\"timeout:\")||l.includes(\"max_connections:\")||l.includes(\"max_keepalive\")||l.includes(\"keepalive_expiry\")) console.log(i+1, l); });"
+    },
+    {
+     "tool": "execute",
+     "label": "execute: raw file download",
+     "status": "completed",
+     "input": "const f = await fetch(\"https://raw.githubusercontent.com/encode/httpx/master/httpx/_config.py\").then(r => r.text()); const lines = f.split(\"\\n\"); console.log(lines.slice(71, 155).map((l,i)=>`${72+i}: ${l}`).join(\"\\n\"));"
+    }
+   ],
+   "tokens": {
+    "input": 3723,
+    "output": 1144,
+    "reasoning": 568,
+    "cache_read": 32000,
+    "cache_write": 0
+   },
+   "tokens_in_total": 35723,
+   "tokens_total": 37435,
+   "cost_usd": 0.00168165,
+   "correct": true,
+   "checks": [
+    true,
+    true,
+    true,
+    true
+   ],
+   "answer": "All three defaults live in **`httpx/_config.py`** (and are consumed as parameter defaults in `httpx/_client.py`).\n\n| Setting | Default | Definition |\n|---|---|---|\n| Timeout | **5.0 s** for each of `connect`, `read`, `write`, and `pool` | `DEFAULT_TIMEOUT_CONFIG = Timeout(timeout=5.0)` |\n| Connection pool | **`max_connections=100`**, **`max_keepalive_connections=20`**, **`keepalive_expiry=5.0 s`** | `DEFAULT_LIMITS = Limits(max_connections=100, max_keepalive_connections=20)` \u2014 the expiry comes from the `Limits` dataclass default `keepalive_expiry: float | None = 5.0` |\n| Max redirects | **20** | `DEFAULT_MAX_REDIRECTS = 20` |\n\nDetails worth knowing:\n\n- `Timeout(5.0)` assigns 5 s to all four timeout fields (`connect`, `read`, `write`, `pool`), so the overall default is 5 s per operation, not a single 5 s wall-clock cap.\n- Redirects are **not followed by default**: `follow_redirects` defaults to `False`; the limit of 20 only applies once you enable following. Exceeding it raises `TooManyRedirects`.\n- The pool defaults are enforced by `httpcore` via the `Limits` object passed to the transport.\n\nIn current `master` (`_config.py`, around lines 246\u2013248):\n\n```python\nDEFAULT_TIMEOUT_CONFIG = Timeout(timeout=5.0)\nDEFAULT_LIMITS = Limits(max_connections=100, max_keepalive_connections=20)\nDEFAULT_MAX_REDIRECTS = 20\n```\n\nNote that older releases (e.g. 0.23\u20130.27) wrote the limits more explicitly as `Limits(max_connections=100, max_keepalive_connections=20, keepalive_expiry=5.0)` \u2014 same effective values, just spelled out rather than inherited from the dataclass.",
+   "errors": []
+  },
+  {
+   "task": "httpx-defaults",
+   "variant": "without",
+   "rep": 2,
+   "model": "opencode-go/deepseek-v4.1-flash",
+   "opencode": "opencode v2.2.5",
+   "start_ms": 1793989369711,
+   "exit": 0,
+   "wall_s": 15.524,
+   "steps": 4,
+   "tool_calls": 4,
+   "tools": [
+    {
+     "tool": "shell",
+     "label": "shell: local file ops",
+     "status": "completed",
+     "input": "python3 -c \"import httpx; print(httpx.__version__); print(httpx.__file__)\" 2>&1 | head -20"
+    },
+    {
+     "tool": "webfetch",
+     "label": "webfetch",
+     "status": "completed",
+     "input": "https://raw.githubusercontent.com/encode/httpx/master/httpx/_config.py"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: raw file download",
+     "status": "completed",
+     "input": "curl -s https://raw.githubusercontent.com/encode/httpx/master/httpx/_client.py | grep -nE \"DEFAULT_|max_redirects|timeout: |limits: \" | head -40; echo \"---VERSION---\"; curl -s https://raw.githubusercontent.com/encode/httpx/master/httpx/__version__.py"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: raw file download",
+     "status": "completed",
+     "input": "curl -s https://raw.githubusercontent.com/encode/httpx/master/httpx/_client.py | sed -n '960,980p'"
+    }
+   ],
+   "tokens": {
+    "input": 3992,
+    "output": 711,
+    "reasoning": 648,
+    "cache_read": 27136,
+    "cache_write": 0
+   },
+   "tokens_in_total": 31128,
+   "tokens_total": 32487,
+   "cost_usd": 0.0014956079999999996,
+   "correct": true,
+   "checks": [
+    true,
+    true,
+    true,
+    true
+   ],
+   "answer": "I'll check httpx's source directly.\nChecked against httpx's current source on `master` (version **0.28.1**, `httpx/__version__.py`).\n\n## Defaults\n\n| Setting | Value |\n|---|---|\n| Timeout | **5.0 s** on all operations (`connect`, `read`, `write`, `pool`) |\n| Connection pool | **`max_connections=100`**, **`max_keepalive_connections=20`**, `keepalive_expiry=5.0` s |\n| Max redirects | **20** |\n\n## Where they're defined\n\nAll three constants live in **`httpx/_config.py`** (repo path `httpx/_config.py`), at the bottom of the file:\n\n```python\nDEFAULT_TIMEOUT_CONFIG = Timeout(timeout=5.0)\nDEFAULT_LIMITS = Limits(max_connections=100, max_keepalive_connections=20)\nDEFAULT_MAX_REDIRECTS = 20\n```\n\nNote that `keepalive_expiry` isn't in `DEFAULT_LIMITS` explicitly \u2014 it comes from the `Limits.__init__` signature in the same file, which defaults it to `5.0`.\n\nThese constants are imported and used as the parameter defaults for `Client` and `AsyncClient` in **`httpx/_client.py`**.\n\n## Two caveats worth knowing\n\n- **Redirects are off by default.** `follow_redirects` defaults to `False`; the 20-redirect cap only applies once you enable following. The check is `if len(history) > self.max_redirects`, so up to 20 redirects are followed and the 21st raises `TooManyRedirects`.\n- **`max_connections=100` is not per-host.** It's the total concurrent connection cap for the client's pool, shared across all hosts.",
+   "errors": []
+  },
+  {
+   "task": "ripgrep-mmap",
+   "variant": "with",
+   "rep": 0,
+   "model": "opencode-go/deepseek-v4.1-flash",
+   "opencode": "opencode v2.2.5",
+   "start_ms": 1793989178947,
+   "exit": 0,
+   "wall_s": 48.685,
+   "steps": 7,
+   "tool_calls": 6,
+   "tools": [
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo BurntSushi/ripgrep -c 'tree -L 2 -d crates; echo \"## hits\"; grep -rn -m 60 \"mmap\" crates --include=\"*.rs\" | head -80'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo BurntSushi/ripgrep -c 'echo \"## hiargs 210-300\"; sed -n \"210,300p\" crates/core/flags/hiargs.rs; echo \"## defs 4055,4105\"; sed -n \"4055,4105p\" crates/core/flags/defs.rs; echo \"## mmap.rs\"; cat crates/searcher/src/searcher/mmap.rs; echo \"## searcher 680,700\"; sed -n \"675,700p\" crates/searcher/src/searcher/mod.rs'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo BurntSushi/ripgrep -c 'echo \"## MmapMode\"; grep -rn \"MmapMode\" crates --include=\"*.rs\"; echo \"## lowargs\"; grep -n -B 3 -A 6 \"mmap\" crates/core/flags/lowargs.rs; echo \"## defaults\"; grep -n -A 40 \"impl Default for LowArgs\" crates/core/flags/lowargs.rs | grep -n -B 2 -A 2 \"mmap\"; echo \"## docs\"; grep -rn -m 20 \"memory map\" GUIDE.md doc/rg.1.txt 2>/dev/null | head -30'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo BurntSushi/ripgrep -c 'echo \"## lowargs 615-645\"; sed -n \"615,645p\" crates/core/flags/lowargs.rs; echo \"## struct LowArgs\"; grep -n -B 8 \"pub(crate) struct LowArgs\" crates/core/flags/lowargs.rs; echo \"## paths type\"; grep -n -B 5 -A 10 \"struct Paths\" crates/core/flags/hiargs.rs; echo \"## guide 760-785\"; sed -n \"755,785p\" GUIDE.md; echo \"## default impl\"; grep -n -A 15 \"derive(.*Default\" crates/core/flags/lowargs.rs | head -25'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo BurntSushi/ripgrep -c 'echo \"## version\"; grep -n -m 5 \"^version\" Cargo.toml crates/core/Cargo.toml; echo \"## hiargs 222-250\"; sed -n \"222,250p\" crates/core/flags/hiargs.rs; echo \"## memory_map set\"; sed -n \"715,735p\" crates/core/flags/hiargs.rs'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo BurntSushi/ripgrep -c 'grep -n \"fn open\\|macos\\|fn is_enabled\\|fn default\\|MmapChoice::never\\|impl Default for MmapChoice\" crates/searcher/src/searcher/mmap.rs; grep -n \"mmap.open\\|fn search_file_maybe_path\" crates/searcher/src/searcher/mod.rs; grep -n \"MmapMode::Auto\\|AlwaysTryMmap\\|MmapMode::Never\\|paths.paths.len\" crates/core/flags/hiargs.rs; grep -n \"args.mmap =\" crates/core/flags/defs.rs'"
+    }
+   ],
+   "tokens": {
+    "input": 10264,
+    "output": 1634,
+    "reasoning": 2774,
+    "cache_read": 65920,
+    "cache_write": 0
+   },
+   "tokens_in_total": 76184,
+   "tokens_total": 80592,
+   "cost_usd": 0.0043821599999999995,
+   "correct": true,
+   "checks": [
+    true,
+    true,
+    true
+   ],
+   "answer": "## Default behavior (ripgrep 15.2.0 / current master)\n\nThe CLI's default is `MmapMode::Auto` (`#[default]` in `crates/core/flags/lowargs.rs:625-640`). In `crates/core/flags/hiargs.rs:222-249`, that becomes:\n\n```rust\nlet maybe = unsafe { grep::searcher::MmapChoice::auto() };\nlet never = grep::searcher::MmapChoice::never();\nmatch low.mmap {\n    MmapMode::Auto => {\n        if paths.paths.len() <= 10\n            && paths.paths.iter().all(|p| p.is_file())\n        {\n            // If we're only searching a few paths and all of them\n            // are files, then memory maps are probably faster.\n            maybe\n        } else {\n            never\n        }\n    }\n    MmapMode::AlwaysTryMmap => maybe,\n    MmapMode::Never => never,\n}\n```\n\nSo **by default ripgrep enables memory maps only when it was given at most 10 paths and every one of those paths is a regular file** \u2014 e.g. `rg foo a.txt b.txt`. Things like `rg foo` (implicit `./`), `rg foo src/`, a glob expanding to 11+ files, or any directory/non-file argument disable mmap. `Path::is_file()` also excludes stdin (`-`), devices, etc.\n\n## Additional restrictions even when enabled\n\n- **macOS:** `MmapChoice::open()` hard-returns `None` for `cfg!(target_os = \"macos\")`, even under `--mmap` (`crates/searcher/src/searcher/mmap.rs:65-82`).\n- **Only real files:** mmap is attempted only in `search_file_maybe_path`, on an already-open `File` (`crates/searcher/src/searcher/mod.rs:689`). Streams/stdin/preprocessor output use the reader path and are never mmap'd.\n- If `Mmap::map` fails, ripgrep silently falls back to normal reads.\n- The library `MmapChoice::default()` is `Never`; it is the CLI that raises it to `Auto`/`AlwaysTryMmap`.\n\n## Flags that override it\n\n| Flag | Effect |\n|---|---|\n| `--mmap` | Sets `MmapMode::AlwaysTryMmap` \u2014 try mmap for every eligible file, regardless of the \u226410/regular-file heuristic. |\n| `--no-mmap` | Sets `MmapMode::Never` \u2014 never use mmap, including the multiline \"read whole file to heap\" path. |\n\nBoth are plain switches on the same flag (`name_negated` is `no-mmap`), and **the last one on the command line wins** (`crates/core/flags/defs.rs:4060-4101`). They can also come from `RIPGREP_CONFIG_PATH`.\n\n`--mmap` does *not* override the macOS or non-file-input restrictions; it only bypasses the \u226410-regular-files heuristic.",
+   "errors": []
+  },
+  {
+   "task": "ripgrep-mmap",
+   "variant": "with",
+   "rep": 1,
+   "model": "opencode-go/deepseek-v4.1-flash",
+   "opencode": "opencode v2.2.5",
+   "start_ms": 1793989349583,
+   "exit": 0,
+   "wall_s": 31.883,
+   "steps": 7,
+   "tool_calls": 6,
+   "tools": [
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo BurntSushi/ripgrep -c 'grep -rn -m 60 \"mmap\" crates/core/flags/defs.rs crates/core/flags/hiargs.rs crates/core/args.rs crates/core/main.rs 2>/dev/null | head -80; echo \"## hits\"; grep -rn -m 40 \"memory map\\|MemoryMap\\|mmap\" crates/core --include=\"*.rs\" | head -60'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo BurntSushi/ripgrep -c 'echo \"## hiargs 210-260\"; sed -n \"210,265p\" crates/core/flags/hiargs.rs; echo \"## lowargs 615,650\"; sed -n \"615,650p\" crates/core/flags/lowargs.rs; echo \"## defs 4058,4105\"; sed -n \"4058,4105p\" crates/core/flags/defs.rs'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo BurntSushi/ripgrep -c 'grep -n -B3 -A12 \"fn is_file\" crates/core/flags/path.rs crates/core/flags/*.rs 2>/dev/null | head -40; echo \"## git log\"; git log -1 --format=\"%h %ad %s\" --date=short'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo BurntSushi/ripgrep -c 'ls crates/core/flags; echo \"## is_file\"; grep -rn -B4 -A10 \"fn is_file\\|is_file(\" crates/core/flags | head -50; echo \"## log\"; git log -1 --oneline'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo BurntSushi/ripgrep -c 'grep -n -B5 -A30 \"pub(crate) struct Paths\" crates/core/flags/hiargs.rs; echo \"## Paths impl\"; grep -n -A25 \"impl Paths\" crates/core/flags/hiargs.rs'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo BurntSushi/ripgrep -c 'sed -n \"1105,1150p\" crates/core/flags/hiargs.rs; echo \"## struct\"; grep -n -A12 \"struct Paths\" crates/core/flags/hiargs.rs'"
+    }
+   ],
+   "tokens": {
+    "input": 6409,
+    "output": 1329,
+    "reasoning": 1086,
+    "cache_read": 56320,
+    "cache_write": 0
+   },
+   "tokens_in_total": 62729,
+   "tokens_total": 65144,
+   "cost_usd": 0.00257931,
+   "correct": true,
+   "checks": [
+    true,
+    true,
+    true
+   ],
+   "answer": "## Default behavior\n\nThe default is `MmapMode::Auto` (`crates/core/flags/lowargs.rs:621-640`). In `crates/core/flags/hiargs.rs`, `Auto` is resolved like this (lines 222-248):\n\n```rust\nlet maybe = unsafe { grep::searcher::MmapChoice::auto() };\nlet never = grep::searcher::MmapChoice::never();\nmatch low.mmap {\n    MmapMode::Auto => {\n        if paths.paths.len() <= 10\n            && paths.paths.iter().all(|p| p.is_file())\n        {\n            // If we're only searching a few paths and all of them\n            // are files, then memory maps are probably faster.\n            maybe\n        } else {\n            never\n        }\n    }\n    MmapMode::AlwaysTryMmap => maybe,\n    MmapMode::Never => never,\n}\n```\n\n**The exact default condition is:**\n\n```rust\npaths.paths.len() <= 10 && paths.paths.iter().all(|p| p.is_file())\n```\n\nHere `paths` is `Vec<PathBuf>` (`hiargs.rs:1055-1067`), so `p.is_file()` is `std::path::Path::is_file`: the path must exist and be a regular file (symlinks are followed). Consequently, mmap is *not* used by default when:\n\n- no path is given and ripgrep falls back to searching `./` (a directory),\n- a directory is searched recursively,\n- stdin (`-`) is searched,\n- any path is missing or is a non-regular file (device, FIFO, etc.),\n- more than 10 path arguments are given.\n\nNote the fallback path logic (`hiargs.rs:1092-1135`) inserts either `./` or `-`, both of which fail `is_file()`, so a bare `rg foo` uses no mmap.\n\n## Flags that override it\n\nBoth are defined on the `Mmap` flag in `crates/core/flags/defs.rs:4060-4100`:\n\n| Flag | Sets | Effect |\n|---|---|---|\n| `--mmap` | `MmapMode::AlwaysTryMmap` | Always try mmap, ignoring the \"\u226410 regular files\" heuristic |\n| `--no-mmap` | `MmapMode::Never` | Never use mmap at all (even for multi-line search, which otherwise reads whole files onto the heap) |\n\nLast one wins when both are given (see `test_mmap` at `defs.rs:4107-4122`). Even `--mmap` cannot force mmap for stdin, streams, or virtual/compressed files \u2014 it only says to try whenever mmap is possible. No other flag (e.g. `-u`/`--multiline`) changes `MmapMode`.",
+   "errors": []
+  },
+  {
+   "task": "ripgrep-mmap",
+   "variant": "with",
+   "rep": 2,
+   "model": "opencode-go/deepseek-v4.1-flash",
+   "opencode": "opencode v2.2.5",
+   "start_ms": 1793989294888,
+   "exit": 0,
+   "wall_s": 34.734,
+   "steps": 7,
+   "tool_calls": 6,
+   "tools": [
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo BurntSushi/ripgrep -c 'tree -L 2 -d; echo \"## grep\"; grep -rn \"mmap\" crates --include=\"*.rs\" | head -80'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo BurntSushi/ripgrep -c 'sed -n \"200,300p\" crates/core/flags/hiargs.rs; echo \"## lowargs\"; grep -n -B4 -A20 \"enum MmapMode\" -r crates/core; echo \"## mmap.rs\"; sed -n \"1,140p\" crates/searcher/src/searcher/mmap.rs; echo \"## defs\"; sed -n \"4055,4125p\" crates/core/flags/defs.rs'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo BurntSushi/ripgrep -c 'grep -rn \"fn is_file\\|fn is_only_stdin\\|struct Paths\" crates/core; echo \"##\"; grep -n -B5 -A40 \"fn is_file\\|fn is_only_stdin\" crates/core/flags/hiargs.rs; echo \"## searcher call\"; grep -rn \"mmap\\|Mmap\" crates/core/search.rs crates/core/main.rs crates/core/args.rs 2>/dev/null | head -40'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo BurntSushi/ripgrep -c 'sed -n \"1040,1140p\" crates/core/flags/hiargs.rs; echo \"## uses\"; grep -rn \"mmap_choice\\|is_one_file\" crates/core --include=\"*.rs\"; echo \"## haystack\"; sed -n \"120,190p\" crates/core/haystack.rs'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo BurntSushi/ripgrep -c 'grep -rn \"mmap\" tests crates/core --include=\"*.rs\" --include=\"*.toml\" | grep -v \"defs.rs\" | head -60; echo \"## searcher\"; sed -n \"660,720p\" crates/searcher/src/searcher/mod.rs; echo \"## multiline\"; grep -n -B3 -A18 \"multi_line\\|multiline\" crates/searcher/src/searcher/mod.rs | sed -n \"1,90p\"'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo BurntSushi/ripgrep -c 'grep -n -m5 \"^version\\|^rust-version\" Cargo.toml'"
+    }
+   ],
+   "tokens": {
+    "input": 12817,
+    "output": 1413,
+    "reasoning": 1942,
+    "cache_read": 69632,
+    "cache_write": 0
+   },
+   "tokens_in_total": 82449,
+   "tokens_total": 85804,
+   "cost_usd": 0.0041444459999999995,
+   "correct": true,
+   "checks": [
+    true,
+    true,
+    true
+   ],
+   "answer": "In current `master` (ripgrep 15.2.0), the default is **not** \"use mmap whenever searching a file.\" `LowArgs` defaults to `MmapMode::Auto`, and `Auto` is resolved in `crates/core/flags/hiargs.rs` with this exact condition:\n\n```rust\nMmapMode::Auto => {\n    if paths.paths.len() <= 10\n        && paths.paths.iter().all(|p| p.is_file())\n    {\n        // If we're only searching a few paths and all of them\n        // are files, then memory maps are probably faster.\n        maybe\n    } else {\n        never\n    }\n}\n```\n\n(`hiargs.rs:234-246`; `MmapMode::Auto` is the `#[default]` in `lowargs.rs:625`.)\n\nSo, by default, ripgrep enables mmap only when **both** are true:\n\n1. **At most 10 paths were given on the command line** (`paths.paths` are the raw positional arguments, not files discovered by recursive traversal).\n2. **Every one of those paths passes `Path::is_file()`** \u2014 i.e. each path currently exists and stat's as a regular file. This follows symlinks, so a symlink to a regular file qualifies.\n\nConsequences:\n\n- `rg foo file.txt` \u2192 mmap.\n- `rg foo a.rs b.rs` (\u226410 explicit files) \u2192 mmap.\n- `rg foo` / `rg foo .` / `rg foo dir/` \u2192 no mmap (the path is `./` or a directory).\n- `rg foo -` or `rg foo file -` \u2192 no mmap (`-` is not a file).\n- `rg foo *.rs` expanding to >10 files \u2192 no mmap.\n- A nonexistent path, FIFO, etc. \u2192 no mmap.\n\nThere is also a hard platform check in the searcher: even when the choice is `Auto`, `MmapChoice::open` returns `None` on macOS (`crates/searcher/src/searcher/mmap.rs`, the `cfg!(target_os = \"macos\")` branch). If `Mmap::map` fails, it silently falls back to normal reads.\n\n### Flags that override it\n\n- **`--mmap`** \u2192 sets `MmapMode::AlwaysTryMmap`, so the heuristic is bypassed and ripgrep always attempts mmap where possible (still impossible for stdin/virtual files, and still skipped on macOS).\n- **`--no-mmap`** \u2192 sets `MmapMode::Never`, disabling mmap in all cases. This is also the mode that makes `-U/--multiline` read the entire file onto the heap instead.\n\nThe parser applies them in order, so the **last one wins**: `--mmap --no-mmap` means never, and `--no-mmap --mmap` means always-try. They can also be set via `RIPGREP_CONFIG_PATH`, subject to the same last-flag-wins ordering.",
+   "errors": []
+  },
+  {
+   "task": "ripgrep-mmap",
+   "variant": "without",
+   "rep": 0,
+   "model": "opencode-go/deepseek-v4.1-flash",
+   "opencode": "opencode v2.2.5",
+   "start_ms": 1793989386357,
+   "exit": 0,
+   "wall_s": 48.519,
+   "steps": 13,
+   "tool_calls": 28,
+   "tools": [
+    {
+     "tool": "shell",
+     "label": "shell: local file ops",
+     "status": "completed",
+     "input": "ls -la /home/dev/work && find /home/dev/work -maxdepth 2 -iname '*ripgrep*' -o -maxdepth 2 -iname 'Cargo.toml' | head -50"
+    },
+    {
+     "tool": "glob",
+     "label": "glob",
+     "status": "completed",
+     "input": "{\"pattern\": \"**/args.rs\"}"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: raw file download",
+     "status": "completed",
+     "input": "cd /tmp/opencode && curl -fsSL https://raw.githubusercontent.com/BurntSushi/ripgrep/master/crates/core/args.rs -o args.rs && grep -n -i -C 4 'mmap' args.rs | head -200"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: raw file download",
+     "status": "completed",
+     "input": "cd /tmp/opencode && curl -fsSL https://raw.githubusercontent.com/BurntSushi/ripgrep/master/crates/core/main.rs -o main.rs && grep -n -i -C 4 'mmap' main.rs | head -200"
+    },
+    {
+     "tool": "webfetch",
+     "label": "webfetch",
+     "status": "error",
+     "input": "https://raw.githubusercontent.com/BurntSushi/ripgrep/master/crates/core/args.rs"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: raw file download",
+     "status": "completed",
+     "input": "pwd; ls -ld /tmp/opencode; curl -sSIL https://raw.githubusercontent.com/BurntSushi/ripgrep/master/README.md | head -20"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: GitHub API",
+     "status": "completed",
+     "input": "curl -fsSL https://api.github.com/repos/BurntSushi/ripgrep/git/trees/master?recursive=1 | grep -o '\"path\": *\"[^\"]*\"' | grep -E 'args|main\\.rs|mmap' | head -100"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: raw file download",
+     "status": "completed",
+     "input": "cd /tmp/opencode && curl -fsSL https://raw.githubusercontent.com/BurntSushi/ripgrep/master/crates/core/main.rs -o rgmain.rs && grep -n -i -C 6 'mmap' rgmain.rs | head -200"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: raw file download",
+     "status": "completed",
+     "input": "cd /tmp/opencode && curl -fsSL https://raw.githubusercontent.com/BurntSushi/ripgrep/master/crates/core/flags/hiargs.rs -o hiargs.rs && grep -n -i -C 6 'mmap' hiargs.rs | head -300"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: raw file download",
+     "status": "completed",
+     "input": "cd /tmp/opencode && curl -fsSL https://raw.githubusercontent.com/BurntSushi/ripgrep/master/crates/core/flags/lowargs.rs -o lowargs.rs && grep -n -i -C 6 'mmap' lowargs.rs | head -200"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: raw file download",
+     "status": "completed",
+     "input": "curl -fsSL https://raw.githubusercontent.com/BurntSushi/ripgrep/master/crates/core/main.rs | grep -n -i -C 8 'mmap' | head -300"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: raw file download",
+     "status": "completed",
+     "input": "curl -fsSL https://raw.githubusercontent.com/BurntSushi/ripgrep/master/crates/core/flags/lowargs.rs | grep -n -i -C 8 'mmap' | head -300"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: raw file download",
+     "status": "completed",
+     "input": "curl -fsSL https://raw.githubusercontent.com/BurntSushi/ripgrep/master/crates/core/flags/hiargs.rs | grep -n -i -C 8 'mmap' | head -300"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: raw file download",
+     "status": "completed",
+     "input": "curl -fsSL https://raw.githubusercontent.com/BurntSushi/ripgrep/master/crates/core/flags/lowargs.rs | grep -n -C 6 -E 'AlwaysTryMmap|MmapMode::Never|mmap' | sed -n '1,240p'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: GitHub API",
+     "status": "completed",
+     "input": "curl -fsSL https://api.github.com/repos/BurntSushi/ripgrep/git/trees/master?recursive=1 | grep -o '\"path\": *\"[^\"]*\"' | grep 'crates/core/flags' | head -80"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: raw file download",
+     "status": "completed",
+     "input": "curl -fsSL https://raw.githubusercontent.com/BurntSushi/ripgrep/master/crates/core/flags/defs.rs | grep -n -i -C 10 'mmap' | head -200"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: raw file download",
+     "status": "completed",
+     "input": "curl -fsSL https://raw.githubusercontent.com/BurntSushi/ripgrep/master/crates/core/flags/hiargs.rs | sed -n '180,260p'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: raw file download",
+     "status": "completed",
+     "input": "curl -fsSL https://raw.githubusercontent.com/BurntSushi/ripgrep/master/crates/core/flags/hiargs.rs | grep -n -C 4 'paths:' | head -80"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: raw file download",
+     "status": "completed",
+     "input": "curl -fsSL https://raw.githubusercontent.com/BurntSushi/ripgrep/master/crates/core/paths.rs | sed -n '1,220p'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: raw file download",
+     "status": "completed",
+     "input": "curl -fsSL https://raw.githubusercontent.com/BurntSushi/ripgrep/master/crates/core/flags/hiargs.rs | sed -n '1040,1180p'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: raw file download",
+     "status": "completed",
+     "input": "curl -fsSL https://raw.githubusercontent.com/BurntSushi/ripgrep/master/crates/searcher/src/searcher/mmap.rs | sed -n '1,260p'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: raw file download",
+     "status": "completed",
+     "input": "curl -fsSL https://raw.githubusercontent.com/BurntSushi/ripgrep/master/crates/core/flags/lowargs.rs | sed -n '615,640p'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: raw file download",
+     "status": "completed",
+     "input": "curl -fsSL https://raw.githubusercontent.com/BurntSushi/ripgrep/master/crates/core/flags/defs.rs | sed -n '4060,4125p'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: GitHub API",
+     "status": "completed",
+     "input": "curl -fsSL https://api.github.com/repos/BurntSushi/ripgrep/commits/master | grep -E '\"sha\"|\"date\"|\"message\"' | head -12"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: raw file download",
+     "status": "completed",
+     "input": "curl -fsSL https://raw.githubusercontent.com/BurntSushi/ripgrep/91f5d22ef48bde459d90a8c7dbeab416e97d0f2b/crates/searcher/src/searcher/mmap.rs | nl -ba | sed -n '75,115p'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: raw file download",
+     "status": "completed",
+     "input": "curl -fsSL https://raw.githubusercontent.com/BurntSushi/ripgrep/91f5d22ef48bde459d90a8c7dbeab416e97d0f2b/crates/core/flags/lowargs.rs | nl -ba | sed -n '621,638p'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: raw file download",
+     "status": "completed",
+     "input": "curl -fsSL https://raw.githubusercontent.com/BurntSushi/ripgrep/91f5d22ef48bde459d90a8c7dbeab416e97d0f2b/crates/core/flags/hiargs.rs | nl -ba | sed -n '222,249p'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: raw file download",
+     "status": "completed",
+     "input": "curl -fsSL https://raw.githubusercontent.com/BurntSushi/ripgrep/91f5d22ef48bde459d90a8c7dbeab416e97d0f2b/crates/searcher/src/searcher/mmap.rs | nl -ba | sed -n '58,84p'"
+    }
+   ],
+   "tokens": {
+    "input": 15332,
+    "output": 2885,
+    "reasoning": 2766,
+    "cache_read": 130688,
+    "cache_write": 0
+   },
+   "tokens_in_total": 146020,
+   "tokens_total": 151671,
+   "cost_usd": 0.006082464,
+   "correct": true,
+   "checks": [
+    true,
+    true,
+    true
+   ],
+   "answer": "In current `master` (commit [`91f5d22`](https://github.com/BurntSushi/ripgrep/commit/91f5d22ef48bde459d90a8c7dbeab416e97d0f2b)), ripgrep\u2019s default is `MmapMode::Auto`. The decision is in [`crates/core/flags/hiargs.rs:234-248`](https://github.com/BurntSushi/ripgrep/blob/91f5d22ef48bde459d90a8c7dbeab416e97d0f2b/crates/core/flags/hiargs.rs#L234-L248):\n\n```rust\nmatch low.mmap {\n    MmapMode::Auto => {\n        if paths.paths.len() <= 10\n            && paths.paths.iter().all(|p| p.is_file())\n        {\n            // If we're only searching a few paths and all of them\n            // are files, then memory maps are probably faster.\n            maybe\n        } else {\n            never\n        }\n    }\n    MmapMode::AlwaysTryMmap => maybe,\n    MmapMode::Never => never,\n}\n```\n\nSo the exact default condition is:\n\n```rust\npaths.paths.len() <= 10 && paths.paths.iter().all(|p| p.is_file())\n```\n\nThat is:\n\n- at most **10** positional path arguments, **and**\n- **every** one of those paths is an existing regular file (`Path::is_file`, which follows symlinks).\n\nThese are the raw CLI path arguments, not files discovered during directory traversal. Consequently, the default is no mmap when:\n\n- no path is given and ripgrep implicitly searches `./`,\n- any path argument is a directory,\n- searching stdin (`-`),\n- more than 10 file arguments are given.\n\n### Overriding flags\n\nFrom [`defs.rs:4060-4122`](https://github.com/BurntSushi/ripgrep/blob/91f5d22ef48bde459d90a8c7dbeab416e97d0f2b/crates/core/flags/defs.rs#L4060-L4122):\n\n- **`--mmap`** \u2192 `MmapMode::AlwaysTryMmap`, bypassing the count/file check.\n- **`--no-mmap`** \u2192 `MmapMode::Never`, disabling memory maps entirely.\n\nThey are switches, and the **last one wins**, e.g. `--mmap --no-mmap` results in `Never`.\n\nOne important caveat: even with `--mmap`, actual mapping can still be declined. In particular, current [`mmap.rs:73-78`](https://github.com/BurntSushi/ripgrep/blob/91f5d22ef48bde459d90a8c7dbeab416e97d0f2b/crates/searcher/src/searcher/mmap.rs#L73-L78) always returns `None` on macOS, so macOS effectively never uses memory maps regardless of the flag.",
+   "errors": []
+  },
+  {
+   "task": "ripgrep-mmap",
+   "variant": "without",
+   "rep": 1,
+   "model": "opencode-go/deepseek-v4.1-flash",
+   "opencode": "opencode v2.2.5",
+   "start_ms": 1793989382970,
+   "exit": 0,
+   "wall_s": 39.651,
+   "steps": 6,
+   "tool_calls": 9,
+   "tools": [
+    {
+     "tool": "webfetch",
+     "label": "webfetch",
+     "status": "completed",
+     "input": "https://raw.githubusercontent.com/BurntSushi/ripgrep/master/crates/core/flags/hiargs.rs"
+    },
+    {
+     "tool": "webfetch",
+     "label": "webfetch",
+     "status": "completed",
+     "input": "https://raw.githubusercontent.com/BurntSushi/ripgrep/master/crates/core/flags/defs.rs"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: local file ops",
+     "status": "completed",
+     "input": "grep -n -A 90 \"struct Mmap;\" /home/dev/.local/share/opencode/tool-output/tool_1b219a5f2001733N7de653nSgw | head -120"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: local file ops",
+     "status": "completed",
+     "input": "grep -rn -i \"mmap\" /home/dev/.local/share/opencode/tool-output/tool_1b219a5df001drMauXBAv4Jl7R | head -40"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: local file ops",
+     "status": "completed",
+     "input": "grep -rn -i \"mmap\\|memory_map\" /home/dev/.local/share/opencode/tool-output/tool_1b219a5df001drMauXBAv4Jl7R"
+    },
+    {
+     "tool": "webfetch",
+     "label": "webfetch",
+     "status": "completed",
+     "input": "https://raw.githubusercontent.com/BurntSushi/ripgrep/master/crates/core/search.rs"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: local file ops",
+     "status": "completed",
+     "input": "grep -n -A 40 \"impl Flag for Unrestricted\" /home/dev/.local/share/opencode/tool-output/tool_1b219a5f2001733N7de653nSgw"
+    },
+    {
+     "tool": "webfetch",
+     "label": "webfetch",
+     "status": "completed",
+     "input": "https://raw.githubusercontent.com/BurntSushi/ripgrep/master/crates/searcher/src/searcher/mod.rs"
+    },
+    {
+     "tool": "webfetch",
+     "label": "webfetch",
+     "status": "completed",
+     "input": "https://raw.githubusercontent.com/BurntSushi/ripgrep/master/crates/searcher/src/searcher/mmap.rs"
+    }
+   ],
+   "tokens": {
+    "input": 45452,
+    "output": 1430,
+    "reasoning": 1833,
+    "cache_read": 164992,
+    "cache_write": 0
+   },
+   "tokens_in_total": 210444,
+   "tokens_total": 213707,
+   "cost_usd": 0.009270576,
+   "correct": true,
+   "checks": [
+    true,
+    true,
+    true
+   ],
+   "answer": "## Short answer\n\nripgrep does **not** use memory maps in the general case. It only opts into the searcher's `Auto` mmap mode when **every path given on the command line is a regular file and there are at most 10 of them**.\n\n## Exact source\n\nIn `crates/core/flags/hiargs.rs`, inside `HiArgs::from_low_args` (the `mmap_choice` block):\n\n```rust\nlet maybe = unsafe { grep::searcher::MmapChoice::auto() };\nlet never = grep::searcher::MmapChoice::never();\nmatch low.mmap {\n    MmapMode::Auto => {\n        if paths.paths.len() <= 10\n            && paths.paths.iter().all(|p| p.is_file())\n        {\n            // If we're only searching a few paths and all of them\n            // are files, then memory maps are probably faster.\n            maybe\n        } else {\n            never\n        }\n    }\n    MmapMode::AlwaysTryMmap => maybe,\n    MmapMode::Never => never,\n}\n```\n\nSo the default (`MmapMode::Auto`) condition is exactly:\n\n```rust\npaths.paths.len() <= 10 && paths.paths.iter().all(|p| p.is_file())\n```\n\nNote that `paths.paths` is the list of **CLI path arguments**, not files discovered by directory traversal. Consequences:\n\n- `rg foo a.txt b.txt` \u2192 mmap candidate (2 paths, both files).\n- `rg foo` (implicit `./`) \u2192 no mmap, because `./` is not a file.\n- `rg foo dir/` \u2192 no mmap.\n- `rg foo -` (stdin) \u2192 no mmap.\n- More than 10 explicit file arguments \u2192 no mmap.\n\n## Runtime caveats\n\nEven when `MmapChoice::auto()` is selected, `MmapChoice::open` in `crates/searcher/src/searcher/mmap.rs` still declines when:\n\n- the platform is macOS (`cfg!(target_os = \"macos\")` returns `None`),\n- the search path is a stream/reader rather than a real file (stdin, `--pre` preprocessor output, `-z`/`--search-zip` decompression), since those go through `search_reader` instead of `search_path`,\n- `Mmap::map` itself fails (mmap unsupported, etc.).\n\nAlso, the searcher crate's own default is `MmapChoice::never()`; ripgrep is what explicitly passes `auto` under the condition above.\n\n## Flags that override it\n\nDefined in `crates/core/flags/defs.rs` (`impl Flag for Mmap`):\n\n- **`--mmap`** \u2192 `MmapMode::AlwaysTryMmap`, which maps to `MmapChoice::auto()` unconditionally (no \u226410 / all-files check). It still cannot actually use mmap for stdin or streamed/preprocessed/decompressed input.\n- **`--no-mmap`** (negated form) \u2192 `MmapMode::Never`, which maps to `MmapChoice::never()`.\n\nLast one wins if both are given (e.g. `--mmap --no-mmap` \u2192 never). These can also be set via the `RIPGREP_CONFIG_PATH` config file, which is parsed like extra CLI arguments. No other flag (including `-u`/`--unrestricted`) changes the mmap choice.",
+   "errors": []
+  },
+  {
+   "task": "ripgrep-mmap",
+   "variant": "without",
+   "rep": 2,
+   "model": "opencode-go/deepseek-v4.1-flash",
+   "opencode": "opencode v2.2.5",
+   "start_ms": 1793989051927,
+   "exit": 0,
+   "wall_s": 43.099,
+   "steps": 8,
+   "tool_calls": 8,
+   "tools": [
+    {
+     "tool": "shell",
+     "label": "shell: other",
+     "status": "completed",
+     "input": "ls -la /home/dev/work"
+    },
+    {
+     "tool": "webfetch",
+     "label": "webfetch",
+     "status": "completed",
+     "input": "https://raw.githubusercontent.com/BurntSushi/ripgrep/master/crates/core/main.rs"
+    },
+    {
+     "tool": "execute",
+     "label": "execute: raw file download",
+     "status": "completed",
+     "input": "const urls = [ \"https://raw.githubusercontent.com/BurntSushi/ripgrep/master/crates/core/flags/hiargs.rs\", \"https://raw.githubusercontent.com/BurntSushi/ripgrep/master/crates/core/flags/defs.rs\", \"https://raw.githubusercontent.com/BurntSushi/ripgrep/master/crates/core/flags/lowargs.rs\", ]; const res = await Promise.allSettled(urls.map(u => fetch(u).then(r => r.text()))); for (let i=0;i<res.length;i++) { const t = res[i].status === \"fulfilled\" ? res[i].value : String(res[i].reason); const lines = t.split(\"\\n\"); const hits = []; for (let j=0;j<lines.length;j++) { if (/mmap|memory map|Mmap/i.test("
+    },
+    {
+     "tool": "execute",
+     "label": "execute: raw file download",
+     "status": "completed",
+     "input": "const u = \"https://raw.githubusercontent.com/BurntSushi/ripgrep/master/crates/core/flags/hiargs.rs\"; const t = await (await fetch(u)).text(); const lines = t.split(\"\\n\"); for (let i=200;i<=260;i++) console.log(`${i+1}: ${lines[i]}`); console.log(\"==== lowargs ====\"); const l = await (await fetch(\"https://raw.githubusercontent.com/BurntSushi/ripgrep/master/crates/core/flags/lowargs.rs\")).text(); const ll = l.split(\"\\n\"); for (let i=615;i<=645;i++) console.log(`${i+1}: ${ll[i]}`); console.log(\"==== defs ====\"); const d = await (await fetch(\"https://raw.githubusercontent.com/BurntSushi/ripgrep/ma"
+    },
+    {
+     "tool": "execute",
+     "label": "execute: raw file download",
+     "status": "completed",
+     "input": "const u = \"https://raw.githubusercontent.com/BurntSushi/ripgrep/master/crates/core/flags/hiargs.rs\"; const t = await (await fetch(u)).text(); const lines = t.split(\"\\n\"); const idx = lines.findIndex(l => /struct Paths|impl Paths|fn new\\(|paths\\.paths/.test(l)); for (let i=0;i<lines.length;i++) { if (/struct Paths|impl Paths|pub\\(crate\\) paths|fn new\\(/.test(lines[i])) console.log(`${i+1}: ${lines[i]}`); } console.log(\"---- Paths impl ----\"); const start = lines.findIndex(l => /impl Paths/.test(l)); if (start>=0) for (let i=start;i<Math.min(lines.length,start+90);i++) console.log(`${i+1}: ${lin"
+    },
+    {
+     "tool": "execute",
+     "label": "execute: GitHub API",
+     "status": "completed",
+     "input": "const r = await fetch(\"https://api.github.com/repos/BurntSushi/ripgrep/commits/master\", {headers:{\"User-Agent\":\"opencode\"}}); const j = await r.json(); console.log(j.sha, j.commit && j.commit.author && j.commit.author.date); const r2 = await fetch(\"https://raw.githubusercontent.com/BurntSushi/ripgrep/master/Cargo.toml\"); const t2 = await r2.text(); console.log(t2.split(\"\\n\").filter(l=>/^version|^rust-version/.test(l)).join(\"\\n\"));"
+    },
+    {
+     "tool": "execute",
+     "label": "execute: raw file download",
+     "status": "completed",
+     "input": "const files = [\"crates/core/flags/defs.rs\",\"crates/core/flags/lowargs.rs\",\"crates/core/flags/hiargs.rs\",\"crates/core/main.rs\",\"crates/core/search.rs\"]; for (const f of files) { const t = await (await fetch(\"https://raw.githubusercontent.com/BurntSushi/ripgrep/master/\"+f)).text(); const ls=t.split(\"\\n\"); const hits=[]; for (let i=0;i<ls.length;i++) if (/\\.mmap\\b|MmapMode|mmap_choice|memory_map/.test(ls[i])) hits.push(`${i+1}: ${ls[i].trim()}`); console.log(\"## \"+f); console.log(hits.join(\"\\n\")); }"
+    },
+    {
+     "tool": "execute",
+     "label": "execute: raw file download",
+     "status": "completed",
+     "input": "const u=\"https://raw.githubusercontent.com/BurntSushi/ripgrep/master/crates/searcher/src/searcher/mmap.rs\"; const r=await fetch(u); console.log(r.status); const t=await r.text(); console.log(t);"
+    }
+   ],
+   "tokens": {
+    "input": 16502,
+    "output": 1978,
+    "reasoning": 2023,
+    "cache_read": 87296,
+    "cache_write": 0
+   },
+   "tokens_in_total": 103798,
+   "tokens_total": 107799,
+   "cost_usd": 0.005137788,
+   "correct": true,
+   "checks": [
+    true,
+    true,
+    true
+   ],
+   "answer": "In current ripgrep master (`v15.2.0`, commit [`91f5d22`](https://github.com/BurntSushi/ripgrep/tree/91f5d22ef48bde459d90a8c7dbeab416e97d0f2b)), the default is `MmapMode::Auto`, and the exact heuristic is in [`crates/core/flags/hiargs.rs`](https://github.com/BurntSushi/ripgrep/blob/91f5d22ef48bde459d90a8c7dbeab416e97d0f2b/crates/core/flags/hiargs.rs#L234-L248):\n\n```rust\nmatch low.mmap {\n    MmapMode::Auto => {\n        if paths.paths.len() <= 10\n            && paths.paths.iter().all(|p| p.is_file())\n        {\n            // If we're only searching a few paths and all of them\n            // are files, then memory maps are probably faster.\n            maybe\n        } else {\n            never\n        }\n    }\n    MmapMode::AlwaysTryMmap => maybe,\n    MmapMode::Never => never,\n}\n```\n\nSo, by default, ripgrep enables memory-map searching only when:\n\n1. **At most 10 search paths** were resolved, and\n2. **every one of those paths is a regular file** (`Path::is_file()`).\n\nIf no path is given, ripgrep inserts an implicit `./` (or `-` for stdin), which is not a file, so the condition fails and mmap is off. Directories, nonexistent paths, more than 10 explicit files, and stdin likewise fail the condition.\n\nTwo caveats: satisfying the heuristic does not guarantee a successful map (it can fail to map, and virtual files/streams cannot be mapped), and the searcher currently refuses memory maps on macOS outright ([`mmap.rs`](https://github.com/BurntSushi/ripgrep/blob/91f5d22ef48bde459d90a8c7dbeab416e97d0f2b/crates/searcher/src/searcher/mmap.rs#L81-L93)).\n\nThe flags that override the heuristic are:\n\n- **`--mmap`** \u2192 `MmapMode::AlwaysTryMmap`, bypassing the path-count/file heuristic and attempting mmaps wherever possible.\n- **`--no-mmap`** \u2192 `MmapMode::Never`, disabling memory maps entirely.\n\nIf both are given, the last one wins (per the flag tests in `defs.rs`).",
+   "errors": []
+  },
+  {
+   "task": "zod-email",
+   "variant": "with",
+   "rep": 0,
+   "model": "opencode-go/deepseek-v4.1-flash",
+   "opencode": "opencode v2.2.5",
+   "start_ms": 1793989236424,
+   "exit": 0,
+   "wall_s": 26.294,
+   "steps": 6,
+   "tool_calls": 5,
+   "tools": [
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo colinhacks/zod -c 'ls; echo \"## grep\"; grep -rn \"email\" packages/zod/src/v4/core/regexes.ts | head -40'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo colinhacks/zod -c 'sed -n \"1,80p\" packages/zod/src/v4/core/regexes.ts; echo \"## usage\"; grep -rn \"regexes.email\\|email\" packages/zod/src/v4/classic/schemas.ts | head -30; echo \"## version\"; grep -n \"\\\"version\\\"\" packages/zod/package.json'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo colinhacks/zod -c 'grep -rn -A 20 \"export const _email\\|function _email\\|_email =\" packages/zod/src/v4/core/checks.ts; echo \"## schema\"; grep -rn -B3 -A 20 \"ZodEmail\" packages/zod/src/v4/core/schemas.ts | head -60; echo \"## grep regexes import\"; grep -n \"regexes\" packages/zod/src/v4/core/checks.ts | head'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo colinhacks/zod -c 'grep -rn \"export function _email\\|export const _email\\|_email\" packages/zod/src/v4/core/*.ts | head -20'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo colinhacks/zod -c 'sed -n \"80,120p\" packages/zod/src/v4/core/api.ts'"
+    }
+   ],
+   "tokens": {
+    "input": 9105,
+    "output": 697,
+    "reasoning": 395,
+    "cache_read": 42240,
+    "cache_write": 0
+   },
+   "tokens_in_total": 51345,
+   "tokens_total": 52437,
+   "cost_usd": 0.0021476699999999995,
+   "correct": true,
+   "checks": [
+    true,
+    true
+   ],
+   "answer": "In zod **v4.6.7** (current `main`), `z.email()` defaults to `regexes.email`:\n\n```ts\n/^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$/\n```\n\n**Source:** `packages/zod/src/v4/core/regexes.ts` (line 44, commented \"Practical email validation\").\n\nIt is wired in by `$ZodEmail` in `packages/zod/src/v4/core/schemas.ts` (line 500):\n\n```ts\ndef.pattern ??= regexes.email;\n```\n\nSo a custom `pattern` can override it, but this is the built-in default.",
+   "errors": []
+  },
+  {
+   "task": "zod-email",
+   "variant": "with",
+   "rep": 1,
+   "model": "opencode-go/deepseek-v4.1-flash",
+   "opencode": "opencode v2.2.5",
+   "start_ms": 1793989523466,
+   "exit": 0,
+   "wall_s": 15.492,
+   "steps": 4,
+   "tool_calls": 3,
+   "tools": [
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo colinhacks/zod -c 'ls; echo \"## packages\"; ls packages 2>/dev/null; echo \"## grep email regex\"; grep -rn -m 20 \"email\" packages/zod/src --include=\"*.ts\" | head -60'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo colinhacks/zod -c 'grep -rn \"email\" packages/zod/src/v4/core --include=\"*.ts\" | grep -iv test | head -30; echo \"## checks\"; grep -rn -B5 -A15 \"emailRegex\\|\\\\\\$ZodEmail\\|email\" packages/zod/src/v4/core/checks.ts packages/zod/src/v4/core/regexes.ts 2>/dev/null | head -80'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo colinhacks/zod -c 'grep -n \"\\\"version\\\"\" packages/zod/package.json; sed -n \"488,505p\" packages/zod/src/v4/core/schemas.ts'"
+    }
+   ],
+   "tokens": {
+    "input": 8951,
+    "output": 518,
+    "reasoning": 179,
+    "cache_read": 26496,
+    "cache_write": 0
+   },
+   "tokens_in_total": 35447,
+   "tokens_total": 36144,
+   "cost_usd": 0.001840338,
+   "correct": true,
+   "checks": [
+    true,
+    true
+   ],
+   "answer": "Zod (v4, current `packages/zod/package.json` version **4.6.7**) uses this default regex for `z.email()`:\n\n```js\n/^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$/\n```\n\nSource file: `packages/zod/src/v4/core/regexes.ts` (exported as the `email` constant, line 44\u201345).\n\n`z.email()` gets it in `packages/zod/src/v4/core/schemas.ts` via `def.pattern ??= regexes.email;` in the `$ZodEmail` constructor (around line 500).",
+   "errors": []
+  },
+  {
+   "task": "zod-email",
+   "variant": "with",
+   "rep": 2,
+   "model": "opencode-go/deepseek-v4.1-flash",
+   "opencode": "opencode v2.2.5",
+   "start_ms": 1793989364713,
+   "exit": 0,
+   "wall_s": 16.211,
+   "steps": 5,
+   "tool_calls": 4,
+   "tools": [
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo colinhacks/zod -c 'git tag --sort=-v:refname | head -5; echo \"## tree\"; tree -L 2 -d; echo \"## email hits\"; grep -rn -m 40 \"email\" packages/zod/src --include=\"*.ts\" -l'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo colinhacks/zod -c 'cat packages/zod/src/v4/core/regexes.ts; echo \"## api email\"; grep -rn -A 12 \"email\" packages/zod/src/v4/core/api.ts | head -60; echo \"## checks\"; grep -rn -B3 -A 10 \"email\" packages/zod/src/v4/core/checks.ts | head -60'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo colinhacks/zod -c 'grep -rn \"regexes.email\\|regexes\\.html5Email\\|case \\\"email\\\"\\|email:\" packages/zod/src/v4 --include=\"*.ts\" | grep -v tests | head -30; echo \"## pkg\"; grep -n \"\\\"version\\\"\" packages/zod/package.json; echo \"## schemas email\"; grep -n -B2 -A6 \"ZodEmail\\b\" packages/zod/src/v4/classic/schemas.ts | head -40'"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: explorerepo",
+     "status": "completed",
+     "input": "explorerepo --repo colinhacks/zod -c 'sed -n \"490,510p\" packages/zod/src/v4/core/schemas.ts'; echo \"## npm\"; npm view zod version 2>/dev/null || curl -s https://registry.npmjs.org/zod/latest | head -c 300"
+    }
+   ],
+   "tokens": {
+    "input": 10007,
+    "output": 828,
+    "reasoning": 314,
+    "cache_read": 47232,
+    "cache_write": 0
+   },
+   "tokens_in_total": 57239,
+   "tokens_total": 58381,
+   "cost_usd": 0.002327946,
+   "correct": true,
+   "checks": [
+    true,
+    true
+   ],
+   "answer": "I'll check the current zod source for the email validator.\n**zod 4.6.7** (current npm `latest`) uses this default regex for `z.email()`:\n\n```js\n/^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$/\n```\n\n**Source file:** `packages/zod/src/v4/core/regexes.ts` (line 44), exported as `email` with the comment *\"Practical email validation\"*.\n\nHow it's wired: `$ZodEmail` in `packages/zod/src/v4/core/schemas.ts` does `def.pattern ??= regexes.email`, so `z.email()` uses this pattern unless you pass an override.\n\nFor reference, zod also exports alternatives in the same file if this one is too strict/loose for your case:\n\n- `regexes.html5Email` / `regexes.browserEmail` \u2014 HTML5 `input[type=email]` semantics\n- `regexes.rfc5322Email` \u2014 classic emailregex.com RFC 5322 pattern\n- `regexes.unicodeEmail` (alias `idnEmail`) \u2014 loose, length-limited Unicode-friendly pattern\n\nNote this is a v4 answer; zod v3 used a different default regex (in `packages/zod/src/v3/types.ts`).",
+   "errors": []
+  },
+  {
+   "task": "zod-email",
+   "variant": "without",
+   "rep": 0,
+   "model": "opencode-go/deepseek-v4.1-flash",
+   "opencode": "opencode v2.2.5",
+   "start_ms": 1793989325350,
+   "exit": 0,
+   "wall_s": 23.37,
+   "steps": 8,
+   "tool_calls": 10,
+   "tools": [
+    {
+     "tool": "shell",
+     "label": "shell: local file ops",
+     "status": "completed",
+     "input": "ls -la /home/dev/work; find /home/dev/work -maxdepth 4 -path '*zod*' -name 'package.json' 2>/dev/null | head -20"
+    },
+    {
+     "tool": "websearch",
+     "label": "websearch",
+     "status": "completed",
+     "input": "zod z.email() default regex source file current version"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: other",
+     "status": "completed",
+     "input": "npm view zod version 2>/dev/null; npm view zod dist.tarball 2>/dev/null"
+    },
+    {
+     "tool": "webfetch",
+     "label": "webfetch",
+     "status": "completed",
+     "input": "https://raw.githubusercontent.com/colinhacks/zod/main/packages/zod/src/v4/core/regexes.ts"
+    },
+    {
+     "tool": "execute",
+     "label": "execute: other HTTP",
+     "status": "completed",
+     "input": "const r = await fetch(\"https://registry.npmjs.org/zod/latest\"); const j = await r.json(); return {version: j.version, tarball: j.dist?.tarball, repo: j.repository};"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: other HTTP",
+     "status": "completed",
+     "input": "mkdir -p /tmp/opencode/zod && cd /tmp/opencode/zod && curl -sL https://registry.npmjs.org/zod/-/zod-4.6.7.tgz -o zod.tgz && tar xzf zod.tgz && grep -rn \"email\" package/v4/core/regexes.* package/v4/core/schemas.* package/v4/classic/schemas.* 2>/dev/null | head -40"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: other HTTP",
+     "status": "completed",
+     "input": "ls -ld /tmp /tmp/opencode /home/dev/work; mkdir -p /home/dev/work/.zodcheck && cd /home/dev/work/.zodcheck && curl -sL https://registry.npmjs.org/zod/-/zod-4.6.7.tgz -o zod.tgz && tar xzf zod.tgz && grep -rn \"email\" package/v4/core/regexes.* package/v4/core/schemas.* package/v4/classic/schemas.* 2>/dev/null | head -40"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: local file ops",
+     "status": "completed",
+     "input": "cd /home/dev/work/.zodcheck && sed -n '20,40p' package/v4/core/regexes.js && sed -n '200,212p' package/v4/core/schemas.js && node -e \"const {z}=require('./package'); const r=z.regexes.email; console.log(z.email()._zod.def.pattern===r, r);\" 2>&1 | head"
+    },
+    {
+     "tool": "webfetch",
+     "label": "webfetch",
+     "status": "completed",
+     "input": "https://raw.githubusercontent.com/colinhacks/zod/v4.6.7/packages/zod/src/v4/core/regexes.ts"
+    },
+    {
+     "tool": "shell",
+     "label": "shell: other",
+     "status": "completed",
+     "input": "rm -rf /home/dev/work/.zodcheck"
+    }
+   ],
+   "tokens": {
+    "input": 21737,
+    "output": 1086,
+    "reasoning": 858,
+    "cache_read": 96640,
+    "cache_write": 0
+   },
+   "tokens_in_total": 118377,
+   "tokens_total": 120321,
+   "cost_usd": 0.00471687,
+   "correct": true,
+   "checks": [
+    true,
+    true
+   ],
+   "answer": "In the current release, **zod 4.6.7**, `z.email()` defaults to this regex:\n\n```regex\n/^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$/\n```\n\nSource file: **`packages/zod/src/v4/core/regexes.ts`** \u2014 it is exported there as `email` (also available at runtime as `z.regexes.email`). The `$ZodEmail` constructor in `packages/zod/src/v4/core/schemas.ts` assigns it with `def.pattern ?? (def.pattern = regexes.email)`.\n\nOne caveat: the zod documentation still shows an older lookahead-based pattern, but the current 4.6.7 package uses the regex quoted above.",
+   "errors": []
+  },
+  {
+   "task": "zod-email",
+   "variant": "without",
+   "rep": 1,
+   "model": "opencode-go/deepseek-v4.1-flash",
+   "opencode": "opencode v2.2.5",
+   "start_ms": 1793989127016,
+   "exit": 0,
+   "wall_s": 31.058,
+   "steps": 7,
+   "tool_calls": 7,
+   "tools": [
+    {
+     "tool": "execute",
+     "label": "execute: other",
+     "status": "completed",
+     "input": "const r = await tools.opencode.models({ query: \"zod\" }).catch(e => String(e)); return r;"
+    },
+    {
+     "tool": "websearch",
+     "label": "websearch",
+     "status": "completed",
+     "input": "zod v4 z.email() default regex source file"
+    },
+    {
+     "tool": "execute",
+     "label": "execute: other HTTP",
+     "status": "completed",
+     "input": "const r = await fetch(\"https://registry.npmjs.org/zod/latest\"); const j = await r.json(); return { version: j.version, dist: j.dist };"
+    },
+    {
+     "tool": "execute",
+     "label": "execute: raw file download",
+     "status": "completed",
+     "input": "const urls = [ \"https://raw.githubusercontent.com/colinhacks/zod/v4.6.7/packages/zod/src/v4/core/regexes.ts\", \"https://raw.githubusercontent.com/colinhacks/zod/main/packages/zod/src/v4/core/regexes.ts\", \"https://unpkg.com/zod@4.6.7/v4/core/regexes.js\" ]; const out = {}; for (const u of urls) { try { const r = await fetch(u); out[u] = {status:r.status, text: (await r.text()).slice(0,4000)}; } catch(e) { out[u] = String(e); } } return out;"
+    },
+    {
+     "tool": "execute",
+     "label": "execute: raw file download",
+     "status": "completed",
+     "input": "const r = await fetch(\"https://raw.githubusercontent.com/colinhacks/zod/v4.6.7/packages/zod/src/v4/core/schemas.ts\"); const t = await r.text(); const lines = t.split(\"\\n\"); const hits = []; lines.forEach((l,i)=>{ if (/regexes\\.email|function email|email\\(/.test(l)) hits.push([i+1,l]); }); return {status:r.status, hits: hits.slice(0,40)};"
+    },
+    {
+     "tool": "execute",
+     "label": "execute: raw file download",
+     "status": "completed",
+     "input": "const r = await fetch(\"https://raw.githubusercontent.com/colinhacks/zod/v4.6.7/packages/zod/src/v4/core/schemas.ts\"); const lines = (await r.text()).split(\"\\n\"); return lines.slice(485, 512).map((l,i)=>`${486+i}: ${l}`).join(\"\\n\");"
+    },
+    {
+     "tool": "execute",
+     "label": "execute: raw file download",
+     "status": "completed",
+     "input": "const r = await fetch(\"https://raw.githubusercontent.com/colinhacks/zod/v4.6.7/packages/zod/src/v4/core/regexes.ts\"); const t = await r.text(); const m = t.match(/export const email: RegExp =\\s*(\\/[^\\n]+\\/);/); return m ? m[1] : \"not found\";"
+    }
+   ],
+   "tokens": {
+    "input": 10568,
+    "output": 929,
+    "reasoning": 1634,
+    "cache_read": 66688,
+    "cache_write": 0
+   },
+   "tokens_in_total": 77256,
+   "tokens_total": 79819,
+   "cost_usd": 0.0033230639999999997,
+   "correct": true,
+   "checks": [
+    true,
+    true
+   ],
+   "answer": "In Zod **4.6.7** (current npm `latest`), `z.email()` defaults to `z.regexes.email`, defined in:\n\n**`packages/zod/src/v4/core/regexes.ts`**\n\nThe regex is:\n\n```js\n/^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$/\n```\n\nIt has no flags. The default is wired up in `packages/zod/src/v4/core/schemas.ts`:\n\n```ts\ndef.pattern ??= regexes.email;\n```\n\nNote: the regex shown on zod.dev currently differs slightly from the actual 4.6.7 source, so the source above is authoritative for the current release.",
+   "errors": []
+  },
+  {
+   "task": "zod-email",
+   "variant": "without",
+   "rep": 2,
+   "model": "opencode-go/deepseek-v4.1-flash",
+   "opencode": "opencode v2.2.5",
+   "start_ms": 1793989283040,
+   "exit": 0,
+   "wall_s": 41.472,
+   "steps": 8,
+   "tool_calls": 7,
+   "tools": [
+    {
+     "tool": "shell",
+     "label": "shell: other",
+     "status": "completed",
+     "input": "ls -la /home/dev/work"
+    },
+    {
+     "tool": "execute",
+     "label": "execute: raw file download",
+     "status": "completed",
+     "input": "const r = await Promise.allSettled([ fetch(\"https://registry.npmjs.org/zod/latest\").then(r=>r.json()), fetch(\"https://raw.githubusercontent.com/colinhacks/zod/main/packages/zod/src/v4/core/regexes.ts\").then(r=>r.text()), ]); return JSON.stringify(r, null, 2).slice(0, 6000);"
+    },
+    {
+     "tool": "execute",
+     "label": "execute: raw file download",
+     "status": "completed",
+     "input": "const r = await fetch(\"https://raw.githubusercontent.com/colinhacks/zod/main/packages/zod/src/v4/core/regexes.ts\"); const t = await r.text(); const idx = t.indexOf(\"email\"); return JSON.stringify({status:r.status, idx, snippet: t.slice(Math.max(0,idx-800), idx+1200)});"
+    },
+    {
+     "tool": "execute",
+     "label": "execute: other HTTP",
+     "status": "completed",
+     "input": "const r = await fetch(\"https://registry.npmjs.org/zod/-/zod-4.6.7.tgz\"); const buf = new Uint8Array(await r.arrayBuffer()); // base64? Can't write fs. Instead fetch unpkg file directly for version. return JSON.stringify({status:r.status, size: buf.length});"
+    },
+    {
+     "tool": "execute",
+     "label": "execute: raw file download",
+     "status": "completed",
+     "input": "const urls = [ \"https://unpkg.com/zod@4.6.7/src/v4/core/regexes.ts\", \"https://cdn.jsdelivr.net/npm/zod@4.6.7/src/v4/core/regexes.ts\" ]; const out = []; for (const u of urls) { try { const r = await fetch(u); const t = await r.text(); const i = t.indexOf(\"export const email\"); out.push({u, status:r.status, len:t.length, snippet:t.slice(i, i+500)}); } catch(e) { out.push({u, error:String(e)}); } } return JSON.stringify(out, null, 2);"
+    },
+    {
+     "tool": "execute",
+     "label": "execute: raw file download",
+     "status": "completed",
+     "input": "const files = [\"src/v4/core/checks.ts\",\"src/v4/core/api.ts\",\"src/v4/core/schemas.ts\"]; const out = []; for (const f of files) { const r = await fetch(\"https://unpkg.com/zod@4.6.7/\"+f); const t = await r.text(); const lines = t.split(\"\\n\"); const hits = lines.map((l,i)=>({l,i})).filter(x=>/email/i.test(x.l)).slice(0,8); out.push({f, status:r.status, hits:hits.map(h=>({line:h.i+1, text:h.l.trim()}))}); } return JSON.stringify(out, null, 2);"
+    },
+    {
+     "tool": "execute",
+     "label": "execute: raw file download",
+     "status": "completed",
+     "input": "const r = await fetch(\"https://unpkg.com/zod@4.6.7/src/v4/core/regexes.ts\"); const t = await r.text(); const i = t.indexOf(\"export const email\"); const line = t.slice(0,i).split(\"\\n\").length; const raw = t.slice(i, t.indexOf(\";\", i)+1); return JSON.stringify({line, raw});"
+    }
+   ],
+   "tokens": {
+    "input": 7456,
+    "output": 1102,
+    "reasoning": 2172,
+    "cache_read": 63744,
+    "cache_write": 0
+   },
+   "tokens_in_total": 71200,
+   "tokens_total": 74474,
+   "cost_usd": 0.0032740319999999996,
+   "correct": true,
+   "checks": [
+    true,
+    true
+   ],
+   "answer": "**Zod 4.6.7** (current npm `latest` as of this check) uses this default regex for `z.email()`:\n\n```js\n/^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$/\n```\n\n**Source:** `packages/zod/src/v4/core/regexes.ts`, line 44\u201345, exported as `email` with the comment `/** Practical email validation */`.\n\n`z.email()` wires it up in `packages/zod/src/v4/core/schemas.ts` (line 503):\n\n```ts\ndef.pattern ??= regexes.email;\n```\n\nNote this is the Zod 4 regex; Zod 3's `z.string().email()` used a different, simpler pattern.",
+   "errors": []
+  }
+ ],
+ "price": {
+  "input": 0.15,
+  "output": 0.6,
+  "cache_read": 0.003
+ }
+}

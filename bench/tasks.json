@@ -1,0 +1,68 @@
+[
+ {
+  "id": "ripgrep-mmap",
+  "named": true,
+  "prompt": "In BurntSushi/ripgrep, when does ripgrep use memory maps by default? Give the exact condition from the current source, and which flags override it.",
+  "expect": "10 paths or fewer, all regular files; --mmap / --no-mmap override",
+  "checks": [
+   "\\b10\\b",
+   "(?i)file",
+   "--no-mmap"
+  ]
+ },
+ {
+  "id": "bubbletea-fps",
+  "named": true,
+  "prompt": "In charmbracelet/bubbletea, what is the renderer's default frame rate and the maximum, and what happens to out-of-range values passed to WithFPS?",
+  "expect": "default 60, max 120; <1 becomes 60, >120 is capped at 120",
+  "checks": [
+   "\\b60\\b",
+   "\\b120\\b"
+  ]
+ },
+ {
+  "id": "httpx-defaults",
+  "named": false,
+  "prompt": "What are the default timeout, connection pool limits and max redirects in the Python httpx library, according to its current source? Name the file they are defined in.",
+  "expect": "Timeout 5.0s, Limits(max_connections=100, max_keepalive_connections=20), keepalive_expiry 5.0, 20 redirects, httpx/_config.py",
+  "checks": [
+   "\\b5(\\.0)?\\b",
+   "\\b100\\b",
+   "\\b20\\b",
+   "_config\\.py"
+  ]
+ },
+ {
+  "id": "fzf-hscroll",
+  "named": true,
+  "prompt": "In junegunn/fzf, what is the default for --hscroll-off and what does fzf do if the value is negative? Cite the source file.",
+  "expect": "default 10; negative is rejected with 'hscroll offset must be a non-negative integer' (src/options.go)",
+  "checks": [
+   "\\b10\\b",
+   "(?i)non-negative|error|reject",
+   "options\\.go"
+  ]
+ },
+ {
+  "id": "bat-pager",
+  "named": true,
+  "prompt": "How does sharkdp/bat decide which pager to run? Give the order of precedence between its flags and environment variables, the default pager, and anything special it does when the pager is less.",
+  "expect": "--pager > BAT_PAGER > PAGER > less; adds -R/-F (quit-if-one-screen) etc. for less; --paging controls whether",
+  "checks": [
+   "BAT_PAGER",
+   "\\bPAGER\\b",
+   "(?i)\\bless\\b",
+   "(?i)-R|--RAW-CONTROL-CHARS|raw"
+  ]
+ },
+ {
+  "id": "zod-email",
+  "named": false,
+  "prompt": "Which regular expression does the zod TypeScript schema library use by default for z.email() in its current version? Quote the regex and name the source file.",
+  "expect": "the email regex exported from packages/zod/src/v4/core/regexes.ts",
+  "checks": [
+   "regexes\\.ts",
+   "\\[A-Za-z\\]\\{2,\\}"
+  ]
+ }
+]
