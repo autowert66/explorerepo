@@ -56,3 +56,20 @@ Probed: GitHub and GitHub gists (`gist.github.com`, same `agent=git/github-f6e50
 - Typical cold costs against GitHub: `ls src` on `golang/go` ~1.3 s (connect + ls-refs + commit + root + `src`),
   `grep -rn 'func Println' src/fmt` ~0.9 s with refs cached, `grep -rn sched_tick kernel/sched | head -3` on
   `torvalds/linux@v6.11` ~1.8 s including a tag-peeling `ls-refs`.
+
+## Hosts (2026-11-06)
+
+Run with `explorerepo --repo SPEC -c 'ls | wc -l; grep -rl . --include="README*" . | head -1'`; only github.com had an
+ssh key and known_hosts entry, so the others went through the anonymous HTTPS fallback.
+
+| Host | Result | Notes |
+|---|---|---|
+| github.com, gist.github.com | works (ssh, HTTPS) | rejects `filter tree:1` |
+| gitlab.com | works | needs the `.git` suffix over HTTPS (redirects otherwise) |
+| codeberg.org, gitea.com (Forgejo/Gitea) | works | |
+| bitbucket.org | works | |
+| *.googlesource.com (JGit) | works | info/refs omits `# service=`; under `tree:0` a wanted tree is itself omitted, so tree fetches switch to `tree:1` |
+| git.sr.ht | connects, then refuses | 404s on the `.git` suffix (retried without it); `uploadpack.allowFilter` is off |
+| git.kernel.org, git.savannah.gnu.org | connects, then refuses | git http-backend: no `# service=` packet; no filter support |
+
+Hosts without `filter` in the fetch capability cannot be explored lazily; explorerepo says so and exits 128.

@@ -65,6 +65,10 @@ type Repo struct {
 	cmpMu  sync.Mutex
 	cmpMem map[object.OID]bool
 
+	// tree1 is set once the server omits a wanted tree under tree:0 (JGit,
+	// e.g. googlesource); tree fetches then use tree:1, which GitHub rejects.
+	tree1 atomic.Bool
+
 	info Info
 }
 
@@ -361,7 +365,7 @@ func (r *Repo) fetchChunk(ctx context.Context, wants []object.OID, filter string
 	}
 	for _, w := range wants {
 		if !r.store.Has(w) {
-			return fmt.Errorf("server did not return object %s", w)
+			return fmt.Errorf("%w %s", errNotReturned, w)
 		}
 	}
 	return nil
@@ -398,7 +402,7 @@ func (r *Repo) Tree(ctx context.Context, oid object.OID) ([]object.Entry, error)
 	if e, ok, err := r.parsedTree(oid); ok || err != nil {
 		return e, err
 	}
-	if err := r.fetch(ctx, []object.OID{oid}, "tree:0", 0); err != nil {
+	if err := r.fetchTrees(ctx, []object.OID{oid}); err != nil {
 		return nil, err
 	}
 	e, ok, err := r.parsedTree(oid)
@@ -427,7 +431,35 @@ func (r *Repo) Trees(ctx context.Context, oids []object.OID) error {
 	if len(missing) == 0 {
 		return nil
 	}
-	return r.fetch(ctx, missing, "tree:0", 0)
+	return r.fetchTrees(ctx, missing)
+}
+
+var errNotReturned = errors.New("server did not return object")
+
+// fetchTrees fetches just the given trees, without their subtrees or blobs.
+func (r *Repo) fetchTrees(ctx context.Context, oids []object.OID) error {
+	if r.tree1.Load() {
+		return r.fetch(ctx, oids, "tree:1", 0)
+	}
+	err := r.fetch(ctx, oids, "tree:0", 0)
+	if err == nil {
+		return nil
+	}
+	var missing []object.OID
+	for _, o := range oids {
+		if !r.store.Has(o) {
+			missing = append(missing, o)
+		}
+	}
+	if len(missing) == 0 || !errors.Is(err, errNotReturned) {
+		return err
+	}
+	r.logf("server omitted wanted trees under tree:0; retrying with tree:1")
+	if err2 := r.fetch(ctx, missing, "tree:1", 0); err2 != nil {
+		return err
+	}
+	r.tree1.Store(true)
+	return nil
 }
 
 // SubtreeCached reports whether every tree below oid is already cached.

@@ -129,8 +129,27 @@ func TestStripService(t *testing.T) {
 	if string(got) != testAdvert {
 		t.Fatalf("got %q, want %q", got, testAdvert)
 	}
-	if _, err := stripService([]byte(pkt("version 2\n"))); err == nil {
-		t.Fatal("expected error when the service packet is missing")
+	// git http-backend omits the announcement under v2.
+	if got, err := stripService([]byte(testAdvert)); err != nil || string(got) != testAdvert {
+		t.Fatalf("no announcement: got %q, %v", got, err)
+	}
+	if _, err := stripService([]byte(pkt("hello\n"))); err == nil {
+		t.Fatal("expected error for an unknown first packet")
+	}
+}
+
+func TestHTTPRetriesWithoutGitSuffix(t *testing.T) {
+	ts := newTestGitServer(t, testAdvert)
+	// The test server serves /o/r.git; ask for /o/r.git.git, which 404s.
+	h := HTTP{Scheme: "http", Host: ts.host(), Path: "/o/r.git.git"}
+	conn, err := h.Open(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	conn.Close()
+	h.Path = "/o/missing.git"
+	if _, err := h.Open(context.Background()); err == nil || !strings.Contains(err.Error(), "missing.git") {
+		t.Fatalf("want the original 404 for the suffixed path, got %v", err)
 	}
 }
 

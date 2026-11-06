@@ -58,41 +58,59 @@ func statusError(base string, resp *http.Response) error {
 
 // Open fetches the capability advertisement; the returned Conn then posts one
 // request per flush-terminated command, as stateless smart HTTP requires.
+// Repository specs get a ".git" suffix, which most hosts accept; some (e.g.
+// sourcehut) only serve the bare name, so a 404 is retried without it.
 func (h HTTP) Open(ctx context.Context) (Conn, error) {
+	c, status, err := h.open(ctx)
+	if bare, ok := strings.CutSuffix(h.Path, ".git"); ok && status == http.StatusNotFound {
+		h.Path = bare
+		if c2, _, err2 := h.open(ctx); err2 == nil {
+			return c2, nil
+		}
+	}
+	return c, err
+}
+
+// open is Open for one path; status is the info/refs HTTP status, or 0.
+func (h HTTP) open(ctx context.Context) (_ Conn, status int, _ error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, h.base()+"/info/refs?service=git-upload-pack", nil)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	req.Header.Set("Git-Protocol", "version=2")
 	req.Header.Set("User-Agent", userAgent)
 	req.Header.Set("Accept", "application/x-git-upload-pack-advertisement")
 	resp, err := h.client().Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w", h.base(), err)
+		return nil, 0, fmt.Errorf("%s: %w", h.base(), err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return nil, statusError(h.base(), resp)
+		return nil, resp.StatusCode, statusError(h.base(), resp)
 	}
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	caps, err := stripService(body)
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w", h.base(), err)
+		return nil, 0, fmt.Errorf("%s: %w", h.base(), err)
 	}
-	return &httpConn{ctx: ctx, h: h, client: h.client(), caps: caps}, nil
+	return &httpConn{ctx: ctx, h: h, client: h.client(), caps: caps}, http.StatusOK, nil
 }
 
 // stripService removes the "# service=git-upload-pack" packet and the flush
 // that follows it from the info/refs response, leaving the v2 capability
-// advertisement. Over ssh the advertisement starts with "version 2" directly.
+// advertisement. The announcement is optional in v2: git http-backend (as on
+// kernel.org and googlesource) starts with "version 2" directly, as over ssh.
 func stripService(b []byte) ([]byte, error) {
 	r := bytes.NewReader(b)
 	payload, flush, err := readPkt(r)
 	if err != nil {
 		return nil, err
+	}
+	if !flush && bytes.HasPrefix(payload, []byte("version 2")) {
+		return b, nil
 	}
 	if flush || !bytes.HasPrefix(payload, []byte("# service=")) {
 		return nil, fmt.Errorf("unexpected first packet %q", payload)
