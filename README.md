@@ -19,6 +19,11 @@ To read or search the source of any remote git repo (a library, a dependency, a 
 
 `explorerepo help agents` prints the same line, so `explorerepo help agents >> ~/.claude/CLAUDE.md` works too.
 
+In a benchmark of opencode with DeepSeek V4.1 Flash (6 questions about real repos, 36 runs, each in a fresh
+container with web search and webfetch available), installing explorerepo and this line cut tool calls by 57%,
+tokens by 71%, and time to answer by 66%, with every answer correct either way. Per-run tool breakdowns are in
+[`docs/BENCHMARK.md`](docs/BENCHMARK.md); the harness in `bench/` reruns it.
+
 Then agents work in place:
 
 ```sh
