@@ -16,7 +16,11 @@ func init() {
 	register("log", "commit history of the current revision (no path filtering)", logCmd)
 	register("git", "tiny git shim: log, show REV:PATH, ls-tree, rev-parse", gitCmd)
 	register("help", "show this manual", func(ctx context.Context, env *Env, args []string) int {
-		env.Stdout.WriteString(Help(args))
+		text, ok := Help(args)
+		env.Stdout.WriteString(text)
+		if !ok {
+			return ExitUsage
+		}
 		return ExitOK
 	})
 }

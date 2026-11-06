@@ -66,7 +66,8 @@ file has been read once.
 explorerepo --repo SPEC [--rev REV] [options] -c 'SCRIPT'
 explorerepo --repo SPEC [--rev REV] [options] CMD [ARGS...]     # single builtin, no shell parsing
 explorerepo --repo SPEC [--rev REV] [options] < script.sh
-explorerepo help [CMD | repos | agents | about]
+explorerepo help [CMD | flags | repos | agents | about]
+explorerepo --help [TOPIC]                                     # same as `help`, brief without a topic
 explorerepo --version
 
 options: --rev (alias --hash)  --refresh  --no-cache  --no-mux  --https  --no-https  --check
@@ -137,9 +138,11 @@ Agents that check for a tool first get a truthful answer: `type rg`, `command -v
 builtins with no path), and `rg --version` / `rg --help` print a short stub instead of failing.
 So `type -p rg && rg ...` proceeds rather than falling back to `grep`.
 
-Run `explorerepo help` for the exact flags. `explorerepo help repos` covers SPEC forms, hosts and
-private repositories, and `explorerepo help about` prints the version, source, resolved cache
-directory and exit codes. `--help` prints the short usage to stdout. An unsupported flag or command fails with exit 2 and the
+Run `explorerepo help` for the commands. `explorerepo help flags` documents the options,
+`explorerepo help repos` covers SPEC forms, hosts and private repositories, and `explorerepo help
+about` prints the version, source, resolved cache directory and exit codes. `explorerepo --help`
+prints the short usage to stdout, and `explorerepo --help TOPIC` is the same as `explorerepo help
+TOPIC`. An unsupported flag or command, or an unknown topic, fails with exit 2 and the
 list of supported options instead of producing silently wrong output.
 
 `pull [-f] PATH [DEST]` is the only command that writes to the real disk. It copies a file or

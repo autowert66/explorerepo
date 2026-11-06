@@ -291,11 +291,15 @@ func TestHelpIsOurs(t *testing.T) {
 	for script, want := range map[string]string{
 		"help | head -1":       "explorerepo: a read-only shell",
 		"help repos | head -1": "--repo SPEC forms",
+		"help flags | head -1": "Options come before",
 		"help pull | head -1":  "pull [-f] PATH [DEST]",
 	} {
 		r := run(t, f, script)
 		if r.status != 0 || !strings.HasPrefix(r.out, want) {
 			t.Errorf("%s: %d %q", script, r.status, r.out)
 		}
+	}
+	if r := run(t, f, "help nonsense"); r.status == 0 {
+		t.Errorf("help nonsense should fail: %d %q", r.status, r.out)
 	}
 }

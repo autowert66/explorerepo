@@ -78,6 +78,11 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	fl.Var(&maxFetch, "max-fetch", "max pack bytes fetched")
 	if err := fl.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
+			// `--help TOPIC` shows that topic; bare --help is the short usage,
+			// the same text a bare invocation prints.
+			if topic := fl.Args(); len(topic) > 0 {
+				return printHelp(stdout, topic)
+			}
 			fmt.Fprint(stdout, usage) // requested output, not an error
 			return 0
 		}
@@ -91,8 +96,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		return 0
 	}
 	if len(rest) > 0 && rest[0] == "help" {
-		fmt.Fprint(stdout, builtins.Help(rest[1:]))
-		return 0
+		return printHelp(stdout, rest[1:])
 	}
 	fail := func(format string, a ...any) int {
 		fmt.Fprintf(stderr, "explorerepo: "+format+"\n", a...)
@@ -201,6 +205,17 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		return 124
 	}
 	return res.Status
+}
+
+// printHelp writes the manual or the requested topic and returns the exit
+// status: 0, or 2 for a name that is not a topic or command.
+func printHelp(w io.Writer, args []string) int {
+	text, ok := builtins.Help(args)
+	fmt.Fprint(w, text)
+	if !ok {
+		return 2
+	}
+	return 0
 }
 
 // isTerminal reports whether r is an interactive terminal (nothing to read as a script).
@@ -356,6 +371,7 @@ options: --rev (alias --hash)  --refresh  --no-cache  --no-mux  --https  --no-ht
 env:     EXPLOREREPO_REPO  EXPLOREREPO_CACHE  EXPLOREREPO_DEBUG=1  EXPLOREREPO_QUIET
 
 more:    explorerepo help          shell commands and their flags
+         explorerepo help flags    the command-line options
          explorerepo help repos    supported hosts, URL forms, private repos
          explorerepo help agents   the line to add to AGENTS.md / CLAUDE.md
          explorerepo help about    version, source, cache, exit codes

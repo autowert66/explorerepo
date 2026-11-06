@@ -95,7 +95,7 @@ func TestHelpNeedsNoRepo(t *testing.T) {
 	if !strings.Contains(out, "REAL disk") {
 		t.Errorf("help pull: %q", out)
 	}
-	for topic, want := range map[string]string{"repos": "gitlab.com", "about": "Exit", "agents": "explorerepo --repo"} {
+	for topic, want := range map[string]string{"repos": "gitlab.com", "flags": "--max-fetch", "about": "Exit", "agents": "explorerepo --repo"} {
 		out, _, code := exec(t, "", "help", topic)
 		if code != 0 || !strings.Contains(out, want) {
 			t.Errorf("help %s: %d %q", topic, code, out)
@@ -104,12 +104,28 @@ func TestHelpNeedsNoRepo(t *testing.T) {
 	if out, _, _ := exec(t, "", "help", "agents"); strings.Count(out, "\n") != 1 {
 		t.Errorf("help agents must be exactly one line: %q", out)
 	}
+	// A name that is neither a topic nor a command is a usage error, not silence.
+	if out, _, code := exec(t, "", "help", "nonsense"); code != 2 || !strings.Contains(out, "no such command or topic") {
+		t.Errorf("help nonsense: %d %q", code, out)
+	}
+	if _, _, code := exec(t, "", "help", "repos", "extra"); code != 2 {
+		t.Errorf("help repos extra: %d, want 2", code)
+	}
 }
 
 func TestUsageAndVersion(t *testing.T) {
 	out, errOut, code := exec(t, "", "--help")
-	if code != 0 || errOut != "" || !strings.Contains(out, "help repos") {
+	if code != 0 || errOut != "" || !strings.Contains(out, "help repos") || !strings.Contains(out, "help flags") {
 		t.Errorf("--help: %d stdout %q stderr %q", code, out, errOut)
+	}
+	// --help TOPIC is the topic, like `help TOPIC`; bare --help stays the usage.
+	topic, _, _ := exec(t, "", "help", "repos")
+	out, _, code = exec(t, "", "--help", "repos")
+	if code != 0 || out != topic || strings.Contains(out, "usage: explorerepo") {
+		t.Errorf("--help repos: %d %q", code, out)
+	}
+	if out, _, code := exec(t, "", "--help", "nonsense"); code != 2 || !strings.Contains(out, "no such command or topic") {
+		t.Errorf("--help nonsense: %d %q", code, out)
 	}
 	_, errOut, code = exec(t, "", "--no-such-flag")
 	if code == 0 || !strings.Contains(errOut, "usage:") {
@@ -130,6 +146,35 @@ func TestReadmeQuotesAgentsLine(t *testing.T) {
 	}
 	if !strings.Contains(string(b), builtins.AgentsLine) {
 		t.Errorf("README.md does not contain builtins.AgentsLine verbatim; update one to match the other")
+	}
+}
+
+// TestHostListInSync keeps the host and SPEC list in the usage, 'help repos'
+// and the README from drifting apart as hosts are added or removed.
+func TestHostListInSync(t *testing.T) {
+	help, _, code := exec(t, "", "help", "repos")
+	if code != 0 {
+		t.Fatalf("help repos: %d", code)
+	}
+	usage, _, _ := exec(t, "", "--help")
+	b, err := os.ReadFile("../../README.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	readme := strings.ToLower(string(b))
+	help = strings.ToLower(help)
+	for _, host := range []string{"gitlab.com", "gist", "bitbucket", "codeberg", "googlesource.com", "git.sr.ht", "git.kernel.org"} {
+		if !strings.Contains(help, host) {
+			t.Errorf("help repos does not mention %s", host)
+		}
+		if !strings.Contains(readme, host) {
+			t.Errorf("README does not mention %s", host)
+		}
+	}
+	for _, want := range []string{"gitlab.com", "gist:", "ssh://"} {
+		if !strings.Contains(usage, want) {
+			t.Errorf("--help usage does not mention %s", want)
+		}
 	}
 }
 

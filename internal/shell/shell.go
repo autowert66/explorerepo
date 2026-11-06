@@ -98,7 +98,8 @@ func (r *runner) exec(ctx context.Context, dir string, args []string, stdin io.R
 	if len(args) == 2 && (args[1] == "--version" || args[1] == "--help") {
 		if e, ok := builtins.Lookup(args[0]); ok {
 			if args[1] == "--help" {
-				io.WriteString(stdout, builtins.Help([]string{e.Name}))
+				text, _ := builtins.Help([]string{e.Name})
+				io.WriteString(stdout, text)
 			} else {
 				fmt.Fprintf(stdout, "%s (explorerepo builtin)\n", e.Name)
 			}
@@ -294,7 +295,11 @@ func (r *runner) access(ctx context.Context, p string, mode interp.AccessMode) e
 // would otherwise answer with its own builtin list.
 func (r *runner) call(ctx context.Context, args []string) ([]string, error) {
 	if args[0] == "help" {
-		io.WriteString(interp.HandlerCtx(ctx).Stdout, builtins.Help(args[1:]))
+		text, ok := builtins.Help(args[1:])
+		io.WriteString(interp.HandlerCtx(ctx).Stdout, text)
+		if !ok {
+			return []string{"false"}, nil
+		}
 		return []string{"true"}, nil
 	}
 	if args[0] == "type" || args[0] == "command" {

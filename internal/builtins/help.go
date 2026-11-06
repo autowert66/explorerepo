@@ -30,26 +30,33 @@ func Version() string {
 }
 
 // Help returns the agent-facing manual, a topic, or a single command's entry.
-func Help(args []string) string {
-	if len(args) > 0 {
-		name := args[0]
-		switch name {
-		case "repos":
-			return helpRepos
-		case "agents":
-			return AgentsLine + "\n"
-		case "about":
-			return helpAbout()
-		}
-		if h, ok := helpDetail[name]; ok {
-			return h
-		}
-		if e, ok := Lookup(name); ok {
-			return fmt.Sprintf("%s: %s\nSee 'help' for the supported flags.\n", e.Name, e.Summary)
-		}
-		return fmt.Sprintf("help: no such command or topic %q (topics: repos, agents, about; run 'help' for the commands)\n", name)
+// ok is false when the name is neither a topic nor a command, so the caller can
+// turn the miss into a non-zero exit.
+func Help(args []string) (string, bool) {
+	if len(args) == 0 {
+		return helpText, true
 	}
-	return helpText
+	name := args[0]
+	if len(args) > 1 {
+		return fmt.Sprintf("help: unexpected argument %q after %q\n", args[1], name), false
+	}
+	switch name {
+	case "repos":
+		return helpRepos, true
+	case "flags":
+		return helpFlags, true
+	case "agents":
+		return AgentsLine + "\n", true
+	case "about":
+		return helpAbout(), true
+	}
+	if h, ok := helpDetail[name]; ok {
+		return h, true
+	}
+	if e, ok := Lookup(name); ok {
+		return fmt.Sprintf("%s: %s\nSee 'help' for the supported flags.\n", e.Name, e.Summary), true
+	}
+	return fmt.Sprintf("help: no such command or topic %q (topics: repos, flags, agents, about; run 'help' for the commands)\n", name), false
 }
 
 const helpRepos = `--repo SPEC forms
@@ -75,6 +82,27 @@ Access
 --rev REV
   A branch, tag (annotated tags are peeled), refs/... name, or full 40-hex commit OID; the
   default is the remote HEAD. Abbreviated OIDs are rejected. 'refs' lists what exists.
+`
+
+const helpFlags = `Options come before the command or -c script.
+  --repo SPEC       the repository; required unless EXPLOREREPO_REPO is set (see 'help repos').
+  --rev REV         revision, alias --hash (see 'help repos' for the accepted forms).
+  -c 'SCRIPT'       run SCRIPT as a shell script; otherwise the first non-flag argument is a
+                    single command with no shell parsing.
+  --refresh         ignore cached refs (refs are cached for 10 minutes).
+  --no-cache        keep nothing on disk; refs are not cached and the HTTPS note is suppressed.
+  --no-mux          disable the ssh ControlMaster reuse (one connection per invocation).
+  --https           force anonymous HTTPS instead of ssh (public repositories only).
+  --no-https        never fall back to HTTPS when ssh fails.
+  --max-output B    cap stdout per command, with K/M/G suffixes (default 200K).
+  --max-fetch B     cap the bytes fetched into one pack (default 256M).
+  --max-files N     cap the files a recursive content scan may fetch (default 20000).
+  --timeout D       overall wall-clock limit (default 60s); on expiry, exit 124.
+  --check           test ssh and HTTPS against SPEC step by step, then exit 0 or 128.
+  --version         print the version and source URL, then exit.
+  -h, --help [TOPIC]  print this short usage, or a topic: --help repos, --help flags, ...
+
+Environment: see 'help about'.
 `
 
 func helpAbout() string {
@@ -140,8 +168,8 @@ PROBE     type NAME... | command -v NAME... | which NAME...   report the command
           since these are builtins with no path. CMD --version and CMD --help print a stub.
 Notes     Symlinks pointing outside the repo error out; submodules are empty dirs ('not fetched');
           LFS files show as pointer text. 'ls -l' sizes are '?' when not yet downloaded.
-More      help repos (hosts, URL forms, private repos)   help agents (line for AGENTS.md)
-          help about (version, source, cache, exit codes)
+More      help flags (command-line options)   help repos (hosts, URL forms, private repos)
+          help agents (line for AGENTS.md)     help about (version, source, cache, exit codes)
 
 Examples
   ls -la; cat README.md | head -20
