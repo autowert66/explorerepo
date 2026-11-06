@@ -5,8 +5,21 @@ import (
 	"runtime"
 	"runtime/debug"
 
+	"github.com/autowert66/explorerepo/internal/color"
 	"github.com/autowert66/explorerepo/internal/store"
 )
+
+// Styler styles output for a terminal; see package color.
+type Styler = color.Styler
+
+// HelpStyled styles the text Help(args) returned. Errors and the agents line,
+// which is meant to be copied into a file, stay plain.
+func HelpStyled(s Styler, args []string, text string, ok bool) string {
+	if !ok || len(args) > 0 && args[0] == "agents" {
+		return text
+	}
+	return s.Help(text)
+}
 
 // Source is where explorerepo is developed and installed from.
 const Source = "https://github.com/autowert66/explorerepo"
@@ -99,6 +112,8 @@ const helpFlags = `Options come before the command or -c script.
   --max-files N     cap the files a recursive content scan may fetch (default 20000).
   --timeout D       overall wall-clock limit (default 60s); on expiry, exit 124.
   --check           test ssh and HTTPS against SPEC step by step, then exit 0 or 128.
+  --color WHEN      color the help and --check for a terminal: auto (default), always, never.
+                    auto is off for pipes, agents, NO_COLOR and TERM=dumb; FORCE_COLOR forces it.
   --version         print the version and source URL, then exit.
   -h, --help [TOPIC]  print this short usage, or a topic: --help repos, --help flags, ...
 
@@ -121,7 +136,7 @@ Cache    ` + cache + `
 Exit     the script's status; 2 usage error or missing --repo; 124 timeout;
          127 unknown command; 128 setup error (auth, repo not found, bad --rev)
 Env      EXPLOREREPO_REPO default --repo, EXPLOREREPO_DEBUG=1 log requests to stderr,
-         EXPLOREREPO_QUIET silence the HTTPS-fallback note
+         EXPLOREREPO_QUIET silence the HTTPS-fallback note, NO_COLOR disable color
 `
 }
 

@@ -19,6 +19,7 @@ import (
 	"mvdan.cc/sh/v3/syntax"
 
 	"github.com/autowert66/explorerepo/internal/builtins"
+	"github.com/autowert66/explorerepo/internal/color"
 	"github.com/autowert66/explorerepo/internal/repo"
 	"github.com/autowert66/explorerepo/internal/vfs"
 )
@@ -31,6 +32,7 @@ type Options struct {
 	Stdout    io.Writer
 	Stderr    io.Writer
 	MaxOutput int64 // 0 = unlimited
+	Color     bool  // Stdout is a human's terminal; style what is written straight to it
 }
 
 // limitWriter stops output once the cap is reached and cancels the run.
@@ -86,6 +88,13 @@ func humanBytes(n int64) string {
 type runner struct {
 	opt Options
 	out *builtins.Out // not used directly; each command gets its own
+	top io.Writer     // the run's own stdout, as opposed to a pipe or redirect
+}
+
+// color reports whether a command writing to w writes straight to a color
+// terminal: in 'help; help | head' only the first is styled.
+func (r *runner) color(w io.Writer) builtins.Styler {
+	return builtins.Styler{On: r.opt.Color && w == r.top}
 }
 
 // exec runs a builtin with the given stdio and returns its status.
@@ -99,7 +108,7 @@ func (r *runner) exec(ctx context.Context, dir string, args []string, stdin io.R
 		if e, ok := builtins.Lookup(args[0]); ok {
 			if args[1] == "--help" {
 				text, _ := builtins.Help([]string{e.Name})
-				io.WriteString(stdout, text)
+				io.WriteString(stdout, r.color(stdout).Help(text))
 			} else {
 				fmt.Fprintf(stdout, "%s (explorerepo builtin)\n", e.Name)
 			}
@@ -114,7 +123,7 @@ func (r *runner) exec(ctx context.Context, dir string, args []string, stdin io.R
 	out := builtins.NewOut(stdout)
 	env := &builtins.Env{
 		Stdin: stdin, Stdout: out, Stderr: stderr, Dir: dir,
-		FS: r.opt.FS, Repo: r.opt.Repo, Cfg: r.opt.Cfg,
+		FS: r.opt.FS, Repo: r.opt.Repo, Cfg: r.opt.Cfg, Color: r.color(stdout),
 		Run: func(ctx context.Context, a []string, in io.Reader, o io.Writer) int {
 			return r.exec(ctx, dir, a, in, o, stderr)
 		},
@@ -132,13 +141,16 @@ func RunCommand(ctx context.Context, opt Options, args []string) Result {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	lw := &limitWriter{w: opt.Stdout, max: opt.MaxOutput, cancel: cancel}
-	r := &runner{opt: opt}
+	r := &runner{opt: opt, top: lw}
 	status := r.exec(ctx, "/", args, opt.Stdin, lw, opt.Stderr)
 	return finish(opt, lw, status)
 }
 
 func finish(opt Options, lw *limitWriter, status int) Result {
 	if lw.truncated.Load() {
+		if opt.Color {
+			io.WriteString(opt.Stdout, color.Reset) // the cut may fall inside a style
+		}
 		io.WriteString(opt.Stderr, truncNotice(lw.max))
 		return Result{Status: 0, Truncated: true}
 	}
@@ -154,8 +166,8 @@ func Run(ctx context.Context, opt Options, script string) Result {
 		fmt.Fprintf(opt.Stderr, "explorerepo: syntax error: %v\n", err)
 		return Result{Status: 2}
 	}
-	r := &runner{opt: opt}
 	lw := &limitWriter{w: opt.Stdout, max: opt.MaxOutput, cancel: cancel}
+	r := &runner{opt: opt, top: lw}
 	info := opt.Repo.Info()
 	env := expand.ListEnviron("PWD=/", "HOME=/", "PATH=", "REPO="+info.Repo, "REV="+info.Rev, "COMMIT="+info.Commit.String())
 
@@ -296,7 +308,8 @@ func (r *runner) access(ctx context.Context, p string, mode interp.AccessMode) e
 func (r *runner) call(ctx context.Context, args []string) ([]string, error) {
 	if args[0] == "help" {
 		text, ok := builtins.Help(args[1:])
-		io.WriteString(interp.HandlerCtx(ctx).Stdout, text)
+		w := interp.HandlerCtx(ctx).Stdout
+		io.WriteString(w, builtins.HelpStyled(r.color(w), args[1:], text, ok))
 		if !ok {
 			return []string{"false"}, nil
 		}

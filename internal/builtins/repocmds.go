@@ -17,7 +17,7 @@ func init() {
 	register("git", "tiny git shim: log, show REV:PATH, ls-tree, rev-parse", gitCmd)
 	register("help", "show this manual", func(ctx context.Context, env *Env, args []string) int {
 		text, ok := Help(args)
-		env.Stdout.WriteString(text)
+		env.Stdout.WriteString(HelpStyled(env.Color, args, text, ok))
 		if !ok {
 			return ExitUsage
 		}

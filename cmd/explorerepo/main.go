@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/autowert66/explorerepo/internal/builtins"
+	"github.com/autowert66/explorerepo/internal/color"
 	"github.com/autowert66/explorerepo/internal/object"
 	"github.com/autowert66/explorerepo/internal/pack"
 	"github.com/autowert66/explorerepo/internal/protocol"
@@ -72,6 +73,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		timeout    = fl.Duration("timeout", 60*time.Second, "overall timeout")
 		version    = fl.Bool("version", false, "print the version")
 		check      = fl.Bool("check", false, "check each transport against the repository")
+		colorMode  = fl.String("color", color.Auto, "auto, always or never")
 	)
 	fl.StringVar(rev, "hash", "", "alias for --rev")
 	fl.Var(&maxOutput, "max-output", "max stdout bytes")
@@ -80,31 +82,38 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		if errors.Is(err, flag.ErrHelp) {
 			// `--help TOPIC` shows that topic; bare --help is the short usage,
 			// the same text a bare invocation prints.
+			out := color.Styler{On: color.Enabled(stdout, *colorMode)}
 			if topic := fl.Args(); len(topic) > 0 {
-				return printHelp(stdout, topic)
+				return printHelp(stdout, out, topic)
 			}
-			fmt.Fprint(stdout, usage) // requested output, not an error
+			fmt.Fprint(stdout, out.Help(usage)) // requested output, not an error
 			return 0
 		}
-		fmt.Fprint(stderr, usage)
+		fmt.Fprint(stderr, color.Styler{On: color.Enabled(stderr, color.Auto)}.Help(usage))
 		return exitSetup
 	}
 	rest := fl.Args()
+	mode, err := color.ParseMode(*colorMode)
+	if err != nil {
+		fmt.Fprintf(stderr, "explorerepo: %v\n", err)
+		return 2
+	}
+	outC, errC := color.Styler{On: color.Enabled(stdout, mode)}, color.Styler{On: color.Enabled(stderr, mode)}
 
 	if *version || len(rest) == 1 && rest[0] == "version" {
 		fmt.Fprint(stdout, builtins.Version())
 		return 0
 	}
 	if len(rest) > 0 && rest[0] == "help" {
-		return printHelp(stdout, rest[1:])
+		return printHelp(stdout, outC, rest[1:])
 	}
 	fail := func(format string, a ...any) int {
-		fmt.Fprintf(stderr, "explorerepo: "+format+"\n", a...)
+		fmt.Fprintf(stderr, errC.Err("explorerepo:")+" "+format+"\n", a...)
 		return exitSetup
 	}
 	if *repoArg == "" {
 		fail("--repo is required (or set EXPLOREREPO_REPO)")
-		fmt.Fprint(stderr, usage)
+		fmt.Fprint(stderr, errC.Help(usage))
 		return 2 // usage error, not a setup error
 	}
 	spec, err := repospec.Parse(*repoArg)
@@ -117,7 +126,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	}
 
 	if *check {
-		return checkCmd(context.Background(), spec, *rev, checkTransports(spec, *forceHTTPS, *noHTTPS, *noMux), *timeout, stdout)
+		return checkCmd(context.Background(), spec, *rev, checkTransports(spec, *forceHTTPS, *noHTTPS, *noMux), *timeout, stdout, outC)
 	}
 
 	dir := ""
@@ -148,7 +157,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		} else {
 			tr = transport.Fallback{
 				Primary: ssh, Secondary: httpTransport(spec),
-				OnFallback: fallbackNote(spec, *noCache, stderr), Logf: logf,
+				OnFallback: fallbackNote(spec, *noCache, stderr, errC), Logf: logf,
 			}
 		}
 	}
@@ -171,14 +180,14 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		return fail("%v", err)
 	}
 	fsys := vfs.New(r)
-	fsys.Warn = func(m string) { fmt.Fprintf(stderr, "explorerepo: warning: %s\n", m) }
+	fsys.Warn = func(m string) { fmt.Fprintf(stderr, "%s %s\n", errC.Yellow("explorerepo: warning:"), m) }
 
 	name := spec.Display
 	if i := strings.LastIndex(name, "/"); i >= 0 {
 		name = name[i+1:]
 	}
 	opt := shell.Options{
-		Repo: r, FS: fsys, Stdin: stdin, Stdout: stdout, Stderr: stderr, MaxOutput: int64(maxOutput),
+		Repo: r, FS: fsys, Stdin: stdin, Stdout: stdout, Stderr: stderr, MaxOutput: int64(maxOutput), Color: outC.On,
 		Cfg: &builtins.Config{MaxFiles: *maxFiles, RepoName: name, Rev: *rev},
 	}
 
@@ -209,9 +218,9 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 
 // printHelp writes the manual or the requested topic and returns the exit
 // status: 0, or 2 for a name that is not a topic or command.
-func printHelp(w io.Writer, args []string) int {
+func printHelp(w io.Writer, s color.Styler, args []string) int {
 	text, ok := builtins.Help(args)
-	fmt.Fprint(w, text)
+	fmt.Fprint(w, builtins.HelpStyled(s, args, text, ok))
 	if !ok {
 		return 2
 	}
@@ -260,7 +269,7 @@ func httpTransport(spec *repospec.Spec) transport.HTTP {
 // fallbackNote returns a callback that prints the HTTPS-fallback hint to w at
 // most once per day. It stays silent under --no-cache (nowhere to record the
 // timestamp) and $EXPLOREREPO_QUIET.
-func fallbackNote(spec *repospec.Spec, noCache bool, w io.Writer) func() {
+func fallbackNote(spec *repospec.Spec, noCache bool, w io.Writer, s color.Styler) func() {
 	if noCache || os.Getenv("EXPLOREREPO_QUIET") != "" {
 		return nil
 	}
@@ -275,7 +284,7 @@ func fallbackNote(spec *repospec.Spec, noCache bool, w io.Writer) func() {
 				return
 			}
 		}
-		fmt.Fprintf(w, httpsNote, spec.Host)
+		fmt.Fprint(w, s.Yellow(fmt.Sprintf(httpsNote, spec.Host)))
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			return
 		}
@@ -366,9 +375,9 @@ usage: explorerepo --repo SPEC [--rev REV] [options] -c 'SCRIPT'
 SPEC:    owner/repo (GitHub), gitlab.com/group/repo, gist:ID, any https:// ssh:// git@ URL, local path
 options: --rev (alias --hash)  --refresh  --no-cache  --no-mux  --https  --no-https
          --max-output BYTES (200K)  --max-fetch BYTES (256M)
-         --max-files N (20000)  --timeout DUR (60s)  --version
+         --max-files N (20000)  --timeout DUR (60s)  --color WHEN (auto)  --version
          --check   test ssh and HTTPS against SPEC step by step (does my host work?)
-env:     EXPLOREREPO_REPO  EXPLOREREPO_CACHE  EXPLOREREPO_DEBUG=1  EXPLOREREPO_QUIET
+env:     EXPLOREREPO_REPO  EXPLOREREPO_CACHE  EXPLOREREPO_DEBUG=1  EXPLOREREPO_QUIET  NO_COLOR
 
 more:    explorerepo help          shell commands and their flags
          explorerepo help flags    the command-line options

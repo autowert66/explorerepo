@@ -33,6 +33,7 @@ type Env struct {
 	FS       *vfs.FS
 	Repo     *repo.Repo
 	Cfg      *Config
+	Color    Styler // on when Stdout is a human's terminal, not a pipe
 	reported map[string]bool
 	// Run executes another builtin (used by xargs / find -exec).
 	Run func(ctx context.Context, args []string, stdin io.Reader, stdout io.Writer) int

@@ -72,8 +72,14 @@ explorerepo --version
 
 options: --rev (alias --hash)  --refresh  --no-cache  --no-mux  --https  --no-https  --check
          --max-output BYTES (200K)  --max-fetch BYTES (256M)  --max-files N (20000)  --timeout DUR (60s)
-env:     EXPLOREREPO_REPO (default --repo)  EXPLOREREPO_CACHE  EXPLOREREPO_DEBUG=1  EXPLOREREPO_QUIET
+         --color auto|always|never (auto)
+env:     EXPLOREREPO_REPO (default --repo)  EXPLOREREPO_CACHE  EXPLOREREPO_DEBUG=1  EXPLOREREPO_QUIET  NO_COLOR
 ```
+
+At a terminal, the help and `--check` output are colored. Pipes, redirects, and agents get plain
+text: `auto` turns color off when stdout is not a terminal, when `NO_COLOR` is set or `TERM=dumb`, and
+under agent harnesses that set `CLAUDECODE`, `CODEX_SANDBOX`, `GEMINI_CLI` or `CURSOR_AGENT` (some run
+commands in a pseudo-terminal). `FORCE_COLOR` or `CLICOLOR_FORCE` turns it on anyway.
 
 `SPEC` accepts `owner/repo` (GitHub), `github.com/owner/repo`, `gitlab.com/group/sub/repo`,
 a gist (`gist:<id>`, `gist.github.com/<id>`, or a pasted `https://gist.github.com/<user>/<id>`

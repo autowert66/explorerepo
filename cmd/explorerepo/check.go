@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/autowert66/explorerepo/internal/color"
 	"github.com/autowert66/explorerepo/internal/object"
 	"github.com/autowert66/explorerepo/internal/protocol"
 	"github.com/autowert66/explorerepo/internal/repo"
@@ -29,13 +30,13 @@ type namedTransport struct {
 // fallback, and reports every step explorerepo needs from the server: connect
 // with protocol v2 and filter support, list refs, fetch the commit, one tree, a
 // subtree in one request, and a blob.
-func checkCmd(ctx context.Context, spec *repospec.Spec, rev string, trs []namedTransport, timeout time.Duration, w io.Writer) int {
-	fmt.Fprintf(w, "explorerepo --check %s\n", spec.Display)
+func checkCmd(ctx context.Context, spec *repospec.Spec, rev string, trs []namedTransport, timeout time.Duration, w io.Writer, s color.Styler) int {
+	fmt.Fprintln(w, s.Bold("explorerepo --check "+spec.Display))
 	var ok, failed []string
 	for _, t := range trs {
-		fmt.Fprintf(w, "\n%s  %s\n", t.name, t.url)
+		fmt.Fprintf(w, "\n%s  %s\n", s.Bold(t.name), t.url)
 		tctx, cancel := context.WithTimeout(ctx, timeout)
-		if checkTransport(tctx, spec, rev, t.tr, w) {
+		if checkTransport(tctx, spec, rev, t.tr, w, s) {
 			ok = append(ok, t.name)
 		} else {
 			failed = append(failed, t.name)
@@ -45,30 +46,30 @@ func checkCmd(ctx context.Context, spec *repospec.Spec, rev string, trs []namedT
 	fmt.Fprintln(w)
 	switch {
 	case len(ok) == 0:
-		fmt.Fprintf(w, "verdict: explorerepo cannot read %s (see the FAIL lines above)\n", spec.Display)
+		fmt.Fprintf(w, "%s %s\n", s.Bold("verdict:"), s.Red("explorerepo cannot read "+spec.Display+" (see the FAIL lines above)"))
 		return exitSetup
 	case ok[0] == "https":
-		fmt.Fprint(w, "verdict: works over https (public repositories only)")
+		fmt.Fprintf(w, "%s %s", s.Bold("verdict:"), s.Green("works over https (public repositories only)"))
 		if len(failed) > 0 {
 			fmt.Fprintf(w, "; ssh failed, so private repositories on %s need a working ssh key", spec.Host)
 		}
 		fmt.Fprintln(w)
 	default:
-		fmt.Fprintf(w, "verdict: works over %s\n", strings.Join(ok, " and "))
+		fmt.Fprintf(w, "%s %s\n", s.Bold("verdict:"), s.Green("works over "+strings.Join(ok, " and ")))
 	}
 	return 0
 }
 
-func checkTransport(ctx context.Context, spec *repospec.Spec, rev string, tr transport.Transport, w io.Writer) bool {
+func checkTransport(ctx context.Context, spec *repospec.Spec, rev string, tr transport.Transport, w io.Writer, s color.Styler) bool {
 	step := func(name string, fn func() (string, error)) bool {
 		start := time.Now()
 		msg, err := fn()
 		d := time.Since(start).Round(time.Millisecond)
 		if err != nil {
-			fmt.Fprintf(w, "  FAIL %-8s %v (%v)\n", name, err, d)
+			fmt.Fprintf(w, "  %s %-8s %v %s\n", s.Err("FAIL"), name, err, s.Dim(fmt.Sprintf("(%v)", d)))
 			return false
 		}
-		fmt.Fprintf(w, "  ok   %-8s %s (%v)\n", name, msg, d)
+		fmt.Fprintf(w, "  %s   %-8s %s %s\n", s.Green("ok"), name, msg, s.Dim(fmt.Sprintf("(%v)", d)))
 		return true
 	}
 	if !step("connect", func() (string, error) {
@@ -88,7 +89,7 @@ func checkTransport(ctx context.Context, spec *repospec.Spec, rev string, tr tra
 
 	st, err := store.Open("", 0)
 	if err != nil {
-		fmt.Fprintf(w, "  FAIL %v\n", err)
+		fmt.Fprintf(w, "  %s %v\n", s.Err("FAIL"), err)
 		return false
 	}
 	r := repo.New(repo.Config{Transport: tr, Store: st, CacheKey: spec.CacheKey(), Display: spec.Display, MaxFetch: checkBudget})
@@ -134,7 +135,7 @@ func checkTransport(ctx context.Context, spec *repospec.Spec, rev string, tr tra
 		}
 	}
 	if dir == nil {
-		fmt.Fprintf(w, "  --   subtree  no directory at the root to try\n")
+		fmt.Fprintln(w, s.Dim("  --   subtree  no directory at the root to try"))
 	} else if !step("subtree", func() (string, error) {
 		before := r.FetchedBytes()
 		err := r.PrefetchSubtrees(ctx, dir.OID)
@@ -147,7 +148,7 @@ func checkTransport(ctx context.Context, spec *repospec.Spec, rev string, tr tra
 		return false
 	}
 	if file == nil {
-		fmt.Fprintf(w, "  --   blob     no file at the root to try\n")
+		fmt.Fprintln(w, s.Dim("  --   blob     no file at the root to try"))
 		return true
 	}
 	return step("blob", func() (string, error) {

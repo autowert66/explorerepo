@@ -3,6 +3,7 @@ package builtins
 import (
 	"bytes"
 	"context"
+	"github.com/autowert66/explorerepo/internal/color"
 	"reflect"
 	"regexp"
 	"strings"
@@ -255,6 +256,17 @@ func TestBadComponent(t *testing.T) {
 	for _, c := range []string{"a", ".github", ".gitignore", "git"} {
 		if err := badComponent(c); err != nil {
 			t.Errorf("%q: %v", c, err)
+		}
+	}
+}
+
+// TestHelpStyledRoundTrip: styling only adds escapes, for every page.
+func TestHelpStyledRoundTrip(t *testing.T) {
+	on := Styler{On: true}
+	for _, args := range [][]string{nil, {"repos"}, {"flags"}, {"about"}, {"pull"}, {"which"}, {"grep"}} {
+		text, ok := Help(args)
+		if got := HelpStyled(on, args, text, ok); color.Strip(got) != text || got == text {
+			t.Errorf("help %v: styled text does not strip back to the original", args)
 		}
 	}
 }

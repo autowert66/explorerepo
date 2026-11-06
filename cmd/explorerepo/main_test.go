@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/autowert66/explorerepo/internal/builtins"
+	"github.com/autowert66/explorerepo/internal/color"
 	"github.com/autowert66/explorerepo/internal/repospec"
 	"github.com/autowert66/explorerepo/internal/testutil"
 )
@@ -14,6 +15,8 @@ import (
 func exec(t *testing.T, stdin string, args ...string) (out, errOut string, code int) {
 	t.Helper()
 	t.Setenv("EXPLOREREPO_CACHE", t.TempDir())
+	t.Setenv("FORCE_COLOR", "") // the developer's shell must not color test output
+	t.Setenv("CLICOLOR_FORCE", "")
 	var o, e bytes.Buffer
 	code = run(args, strings.NewReader(stdin), &o, &e)
 	return o.String(), e.String(), code
@@ -237,7 +240,7 @@ func TestFallbackNoteOncePerDay(t *testing.T) {
 		t.Fatal(err)
 	}
 	var buf bytes.Buffer
-	note := fallbackNote(spec, false, &buf)
+	note := fallbackNote(spec, false, &buf, color.Styler{})
 	if note == nil {
 		t.Fatal("expected a note callback")
 	}
@@ -257,11 +260,11 @@ func TestFallbackNoteSuppressed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if fallbackNote(spec, true, &bytes.Buffer{}) != nil {
+	if fallbackNote(spec, true, &bytes.Buffer{}, color.Styler{}) != nil {
 		t.Fatal("--no-cache should suppress the note")
 	}
 	t.Setenv("EXPLOREREPO_QUIET", "1")
-	if fallbackNote(spec, false, &bytes.Buffer{}) != nil {
+	if fallbackNote(spec, false, &bytes.Buffer{}, color.Styler{}) != nil {
 		t.Fatal("EXPLOREREPO_QUIET should suppress the note")
 	}
 }
@@ -278,4 +281,46 @@ func TestCheck(t *testing.T) {
 	if code != 128 || !strings.Contains(out, "FAIL connect") || !strings.Contains(out, "cannot read") {
 		t.Errorf("--check on a missing repo: %d\n%s", code, out)
 	}
+}
+
+// TestColor: plain unless asked for; styled help strips back to the plain text;
+// inside a script only output going straight to the terminal is styled.
+func TestColor(t *testing.T) {
+	plain, _, _ := exec(t, "", "--help")
+	if strings.Contains(plain, "\x1b[") {
+		t.Fatalf("--help colored without a terminal: %q", plain)
+	}
+	out, _, code := exec(t, "", "--color=always", "--help")
+	if code != 0 || !strings.Contains(out, "\x1b[") || color.Strip(out) != plain {
+		t.Errorf("--color=always --help: %d %q", code, out)
+	}
+	t.Setenv("FORCE_COLOR", "1")
+	t.Setenv("NO_COLOR", "1")
+	if out, _, _ := run2(t, "--help"); out != plain {
+		t.Errorf("NO_COLOR ignored: %q", out)
+	}
+	if out, _, _ := exec(t, "", "--color=always", "help", "agents"); strings.Contains(out, "\x1b[") {
+		t.Errorf("help agents must stay plain: %q", out)
+	}
+	if _, errOut, code := exec(t, "", "--color=yes", "help"); code != 2 || !strings.Contains(errOut, "--color") {
+		t.Errorf("--color=yes: %d %q", code, errOut)
+	}
+
+	f := testutil.NewFixture(t)
+	out, _, _ = exec(t, "", "--repo", f.Bare, "--color=always", "-c", "help | head -1; help flags")
+	first, rest, _ := strings.Cut(out, "\n")
+	if strings.Contains(first, "\x1b[") || !strings.Contains(rest, "\x1b[") {
+		t.Errorf("piped help styled or direct help plain: %q", out)
+	}
+	if out, _, _ := exec(t, "", "--repo", f.Bare, "--color=always", "help"); !strings.Contains(out, "\x1b[") {
+		t.Errorf("help builtin not styled: %q", out[:min(80, len(out))])
+	}
+}
+
+// run2 is exec without resetting the color environment.
+func run2(t *testing.T, args ...string) (string, string, int) {
+	t.Helper()
+	var o, e bytes.Buffer
+	code := run(args, strings.NewReader(""), &o, &e)
+	return o.String(), e.String(), code
 }
