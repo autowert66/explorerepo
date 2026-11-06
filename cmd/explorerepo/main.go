@@ -56,7 +56,7 @@ func main() { os.Exit(run(os.Args[1:], os.Stdin, os.Stdout, os.Stderr)) }
 func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	fl := flag.NewFlagSet("explorerepo", flag.ContinueOnError)
 	fl.SetOutput(stderr)
-	fl.Usage = func() { fmt.Fprint(stderr, usage) }
+	fl.Usage = func() {} // printed after Parse, to stdout for --help
 	var (
 		repoArg    = fl.String("repo", os.Getenv("EXPLOREREPO_REPO"), "repository")
 		rev        = fl.String("rev", "", "revision")
@@ -70,18 +70,25 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		maxFetch   = byteSize(256 << 20)
 		maxFiles   = fl.Int("max-files", 20000, "max files per content scan")
 		timeout    = fl.Duration("timeout", 60*time.Second, "overall timeout")
+		version    = fl.Bool("version", false, "print the version")
 	)
 	fl.StringVar(rev, "hash", "", "alias for --rev")
 	fl.Var(&maxOutput, "max-output", "max stdout bytes")
 	fl.Var(&maxFetch, "max-fetch", "max pack bytes fetched")
 	if err := fl.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
+			fmt.Fprint(stdout, usage) // requested output, not an error
 			return 0
 		}
+		fmt.Fprint(stderr, usage)
 		return exitSetup
 	}
 	rest := fl.Args()
 
+	if *version || len(rest) == 1 && rest[0] == "version" {
+		fmt.Fprint(stdout, builtins.Version())
+		return 0
+	}
 	if len(rest) > 0 && rest[0] == "help" {
 		fmt.Fprint(stdout, builtins.Help(rest[1:]))
 		return 0
@@ -310,13 +317,20 @@ func debugCmd(ctx context.Context, tr transport.Transport, args []string, stdout
 	return 0
 }
 
-const usage = `usage: explorerepo --repo SPEC [--rev REV] [options] -c 'SCRIPT'
+const usage = `explorerepo: read or search a remote git repo without cloning it (read-only shell, ssh or HTTPS).
+
+usage: explorerepo --repo SPEC [--rev REV] [options] -c 'SCRIPT'
        explorerepo --repo SPEC [--rev REV] [options] CMD [ARGS...]
        explorerepo --repo SPEC [--rev REV] [options] < script.sh
-       explorerepo help [CMD]
 
+SPEC:    owner/repo (GitHub), gitlab.com/group/repo, gist:ID, any https:// ssh:// git@ URL, local path
 options: --rev (alias --hash)  --refresh  --no-cache  --no-mux  --https  --no-https
          --max-output BYTES (200K)  --max-fetch BYTES (256M)
-         --max-files N (20000)  --timeout DUR (60s)
+         --max-files N (20000)  --timeout DUR (60s)  --version
 env:     EXPLOREREPO_REPO  EXPLOREREPO_CACHE  EXPLOREREPO_DEBUG=1  EXPLOREREPO_QUIET
+
+more:    explorerepo help          shell commands and their flags
+         explorerepo help repos    supported hosts, URL forms, private repos
+         explorerepo help agents   the line to add to AGENTS.md / CLAUDE.md
+         explorerepo help about    version, source, cache, exit codes
 `

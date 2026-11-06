@@ -2,21 +2,98 @@ package builtins
 
 import (
 	"fmt"
+	"runtime"
+	"runtime/debug"
+
+	"github.com/autowert66/explorerepo/internal/store"
 )
 
-// Help returns the agent-facing manual (or a single command's entry).
+// Source is where explorerepo is developed and installed from.
+const Source = "https://github.com/autowert66/explorerepo"
+
+// AgentsLine is the line to add to AGENTS.md or CLAUDE.md ('help agents').
+// README.md quotes it verbatim; a test keeps the two in sync.
+const AgentsLine = "To read or search a remote git repo without cloning it, run `explorerepo --repo ORG/REPO -c '<shell script>'`; " +
+	"it is a read-only shell over SSH or HTTPS (ls, cat, head, tail, grep, find, pipes, loops, globs), so chain commands, " +
+	"e.g. `-c 'ls -A; echo --- README ---; find . -maxdepth 1 -iname \"readme*\" -print -exec head -n 20 {} \\;'`. " +
+	"`--repo` also takes gitlab.com/GROUP/REPO, gist:ID, and any git URL or local path; " +
+	"run `explorerepo help` for the flags and `explorerepo help repos` for the supported hosts."
+
+// Version reports the module version stamped by the Go toolchain: the tag or
+// pseudo-version for go install, a VCS pseudo-version for local builds.
+func Version() string {
+	v := "(devel)"
+	if bi, ok := debug.ReadBuildInfo(); ok && bi.Main.Version != "" {
+		v = bi.Main.Version
+	}
+	return fmt.Sprintf("explorerepo %s (%s %s/%s)\n%s\n", v, runtime.Version(), runtime.GOOS, runtime.GOARCH, Source)
+}
+
+// Help returns the agent-facing manual, a topic, or a single command's entry.
 func Help(args []string) string {
 	if len(args) > 0 {
 		name := args[0]
+		switch name {
+		case "repos":
+			return helpRepos
+		case "agents":
+			return AgentsLine + "\n"
+		case "about":
+			return helpAbout()
+		}
 		if h, ok := helpDetail[name]; ok {
 			return h
 		}
 		if e, ok := Lookup(name); ok {
 			return fmt.Sprintf("%s: %s\nSee 'help' for the supported flags.\n", e.Name, e.Summary)
 		}
-		return fmt.Sprintf("help: no such command %q (run 'help' for the list)\n", name)
+		return fmt.Sprintf("help: no such command or topic %q (topics: repos, agents, about; run 'help' for the commands)\n", name)
 	}
 	return helpText
+}
+
+const helpRepos = `--repo SPEC forms
+  owner/repo                     GitHub (github.com)
+  HOST/PATH                      e.g. github.com/o/r, gitlab.com/group/sub/repo, codeberg.org/o/r
+  https://HOST/PATH              any host; also git@HOST:PATH.git and ssh://USER@HOST[:PORT]/PATH
+  gist:ID                        GitHub gist; also gist.github.com/ID or the gist's web URL
+  file:///abs/path, ./path       a local repository
+  A trailing .git is optional.
+
+Hosts
+  Works: GitHub and gists, GitLab, Bitbucket, Codeberg/Forgejo/Gitea, googlesource.com, and any
+  server speaking Git protocol v2 with filtered fetch (git upload-pack, uploadpack.allowFilter).
+  Refused (no filtered fetch): git.sr.ht, git.kernel.org, savannah. Protocol v0-only servers fail.
+
+Access
+  ssh is tried first (your ~/.ssh/config, keys and agent). If it cannot connect, anonymous HTTPS
+  is used: public repositories only, and a note is printed once a day. Private repositories need
+  ssh. --https forces HTTPS, --no-https disables the fallback. Gists use host gist.github.com, so
+  a 'Host github.com' block in ~/.ssh/config does not apply to them.
+
+--rev REV
+  A branch, tag (annotated tags are peeled), refs/... name, or full 40-hex commit OID; the
+  default is the remote HEAD. Abbreviated OIDs are rejected. 'refs' lists what exists.
+`
+
+func helpAbout() string {
+	cache, err := store.DefaultDir()
+	if err != nil {
+		cache = "unavailable (" + err.Error() + ")"
+	}
+	return Version() + `
+explorerepo lets an agent read or search a remote git repository without cloning it and without
+a host API. It speaks Git protocol v2 over ssh or anonymous HTTPS, fetches one commit with no
+trees or blobs, then only the trees and files a command touches, and runs an embedded read-only
+shell over that virtual tree. Nothing on disk is written except the cache and 'pull'.
+
+Cache    ` + cache + `
+         (EXPLOREREPO_CACHE overrides; delete it to reset; refs are cached for 10 minutes)
+Exit     the script's status; 2 usage error or missing --repo; 124 timeout;
+         127 unknown command; 128 setup error (auth, repo not found, bad --rev)
+Env      EXPLOREREPO_REPO default --repo, EXPLOREREPO_DEBUG=1 log requests to stderr,
+         EXPLOREREPO_QUIET silence the HTTPS-fallback note
+`
 }
 
 var helpDetail = map[string]string{
@@ -62,6 +139,8 @@ PROBE     type NAME... | command -v NAME... | which NAME...   report the command
           since these are builtins with no path. CMD --version and CMD --help print a stub.
 Notes     Symlinks pointing outside the repo error out; submodules are empty dirs ('not fetched');
           LFS files show as pointer text. 'ls -l' sizes are '?' when not yet downloaded.
+More      help repos (hosts, URL forms, private repos)   help agents (line for AGENTS.md)
+          help about (version, source, cache, exit codes)
 
 Examples
   ls -la; cat README.md | head -20

@@ -2,9 +2,11 @@ package main
 
 import (
 	"bytes"
+	"os"
 	"strings"
 	"testing"
 
+	"github.com/autowert66/explorerepo/internal/builtins"
 	"github.com/autowert66/explorerepo/internal/repospec"
 	"github.com/autowert66/explorerepo/internal/testutil"
 )
@@ -92,6 +94,42 @@ func TestHelpNeedsNoRepo(t *testing.T) {
 	out, _, _ = exec(t, "", "help", "pull")
 	if !strings.Contains(out, "REAL disk") {
 		t.Errorf("help pull: %q", out)
+	}
+	for topic, want := range map[string]string{"repos": "gitlab.com", "about": "Exit", "agents": "explorerepo --repo"} {
+		out, _, code := exec(t, "", "help", topic)
+		if code != 0 || !strings.Contains(out, want) {
+			t.Errorf("help %s: %d %q", topic, code, out)
+		}
+	}
+	if out, _, _ := exec(t, "", "help", "agents"); strings.Count(out, "\n") != 1 {
+		t.Errorf("help agents must be exactly one line: %q", out)
+	}
+}
+
+func TestUsageAndVersion(t *testing.T) {
+	out, errOut, code := exec(t, "", "--help")
+	if code != 0 || errOut != "" || !strings.Contains(out, "help repos") {
+		t.Errorf("--help: %d stdout %q stderr %q", code, out, errOut)
+	}
+	_, errOut, code = exec(t, "", "--no-such-flag")
+	if code == 0 || !strings.Contains(errOut, "usage:") {
+		t.Errorf("bad flag: %d %q", code, errOut)
+	}
+	for _, args := range [][]string{{"--version"}, {"version"}} {
+		out, _, code := exec(t, "", args...)
+		if code != 0 || !strings.HasPrefix(out, "explorerepo ") || !strings.Contains(out, builtins.Source) {
+			t.Errorf("%v: %d %q", args, code, out)
+		}
+	}
+}
+
+func TestReadmeQuotesAgentsLine(t *testing.T) {
+	b, err := os.ReadFile("../../README.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(b), builtins.AgentsLine) {
+		t.Errorf("README.md does not contain builtins.AgentsLine verbatim; update one to match the other")
 	}
 }
 

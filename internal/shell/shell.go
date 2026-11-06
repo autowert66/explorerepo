@@ -289,9 +289,14 @@ func (r *runner) access(ctx context.Context, p string, mode interp.AccessMode) e
 }
 
 // call intercepts "cd" so failures read like coreutils errors (and name
-// submodules), and the availability probes "type" and "command -v" so they see
-// the builtins the shell actually provides.
+// submodules), the availability probes "type" and "command -v" so they see
+// the builtins the shell actually provides, and "help", which the interpreter
+// would otherwise answer with its own builtin list.
 func (r *runner) call(ctx context.Context, args []string) ([]string, error) {
+	if args[0] == "help" {
+		io.WriteString(interp.HandlerCtx(ctx).Stdout, builtins.Help(args[1:]))
+		return []string{"true"}, nil
+	}
 	if args[0] == "type" || args[0] == "command" {
 		hc := interp.HandlerCtx(ctx)
 		if handled, status := probe(args, hc.Stdout, hc.Stderr); handled {

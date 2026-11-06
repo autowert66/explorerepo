@@ -12,8 +12,10 @@ go install github.com/autowert66/explorerepo/cmd/explorerepo@latest
 Add this line to `AGENTS.md` or `CLAUDE.md`:
 
 ```markdown
-To read or search a remote git repo without cloning it, run `explorerepo --repo ORG/REPO -c '<shell script>'`; it is a read-only shell over SSH or HTTPS (ls, cat, head, tail, grep, find, pipes, loops, globs), so chain commands, e.g. `-c 'ls -A; echo --- README ---; find . -maxdepth 1 -iname "readme*" -print -exec head -n 20 {} \;'`. Run `explorerepo help` for the flags.
+To read or search a remote git repo without cloning it, run `explorerepo --repo ORG/REPO -c '<shell script>'`; it is a read-only shell over SSH or HTTPS (ls, cat, head, tail, grep, find, pipes, loops, globs), so chain commands, e.g. `-c 'ls -A; echo --- README ---; find . -maxdepth 1 -iname "readme*" -print -exec head -n 20 {} \;'`. `--repo` also takes gitlab.com/GROUP/REPO, gist:ID, and any git URL or local path; run `explorerepo help` for the flags and `explorerepo help repos` for the supported hosts.
 ```
+
+`explorerepo help agents` prints the same line, so `explorerepo help agents >> ~/.claude/CLAUDE.md` works too.
 
 Then agents work in place:
 
@@ -64,7 +66,8 @@ file has been read once.
 explorerepo --repo SPEC [--rev REV] [options] -c 'SCRIPT'
 explorerepo --repo SPEC [--rev REV] [options] CMD [ARGS...]     # single builtin, no shell parsing
 explorerepo --repo SPEC [--rev REV] [options] < script.sh
-explorerepo help [CMD]
+explorerepo help [CMD | repos | agents | about]
+explorerepo --version
 
 options: --rev (alias --hash)  --refresh  --no-cache  --no-mux  --https  --no-https
          --max-output BYTES (200K)  --max-fetch BYTES (256M)  --max-files N (20000)  --timeout DUR (60s)
@@ -75,6 +78,9 @@ env:     EXPLOREREPO_REPO (default --repo)  EXPLOREREPO_CACHE  EXPLOREREPO_DEBUG
 a gist (`gist:<id>`, `gist.github.com/<id>`, or a pasted `https://gist.github.com/<user>/<id>`
 URL), `https://host/owner/repo`, `git@host:path.git`, `ssh://user@host[:port]/path`,
 `file:///abs/path`, or a local path.
+Tested hosts: GitHub and gists, GitLab, Bitbucket, Codeberg/Forgejo/Gitea, and googlesource.com; any
+server speaking Git protocol v2 with filtered fetch works. Servers without filter support (git.sr.ht,
+git.kernel.org, savannah) are refused with an error. `explorerepo help repos` prints all of this.
 `--rev` accepts a branch, tag (annotated tags are peeled), a `refs/...` name, or a full 40-hex
 OID; abbreviated OIDs are rejected. The byte flags accept `K`, `M`, and `G` suffixes.
 
@@ -113,7 +119,9 @@ Agents that check for a tool first get a truthful answer: `type rg`, `command -v
 builtins with no path), and `rg --version` / `rg --help` print a short stub instead of failing.
 So `type -p rg && rg ...` proceeds rather than falling back to `grep`.
 
-Run `explorerepo help` for the exact flags. An unsupported flag or command fails with exit 2 and the
+Run `explorerepo help` for the exact flags. `explorerepo help repos` covers SPEC forms, hosts and
+private repositories, and `explorerepo help about` prints the version, source, resolved cache
+directory and exit codes. `--help` prints the short usage to stdout. An unsupported flag or command fails with exit 2 and the
 list of supported options instead of producing silently wrong output.
 
 `pull [-f] PATH [DEST]` is the only command that writes to the real disk. It copies a file or

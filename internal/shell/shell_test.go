@@ -283,3 +283,19 @@ func TestHostileTree(t *testing.T) {
 		t.Error(".git was written")
 	}
 }
+
+// TestHelpIsOurs checks that "help" inside a script prints the explorerepo
+// manual and topics, not the interpreter's own builtin list.
+func TestHelpIsOurs(t *testing.T) {
+	f := testutil.NewFixture(t)
+	for script, want := range map[string]string{
+		"help | head -1":       "explorerepo: a read-only shell",
+		"help repos | head -1": "--repo SPEC forms",
+		"help pull | head -1":  "pull [-f] PATH [DEST]",
+	} {
+		r := run(t, f, script)
+		if r.status != 0 || !strings.HasPrefix(r.out, want) {
+			t.Errorf("%s: %d %q", script, r.status, r.out)
+		}
+	}
+}
