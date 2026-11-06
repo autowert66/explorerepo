@@ -9,12 +9,12 @@ import (
 	"testing"
 	"time"
 
-	"explorerepo/internal/builtins"
-	"explorerepo/internal/repotest"
-	"explorerepo/internal/shell"
-	"explorerepo/internal/testutil"
-	"explorerepo/internal/transport"
-	"explorerepo/internal/vfs"
+	"github.com/autowert66/git-explorer/internal/builtins"
+	"github.com/autowert66/git-explorer/internal/repotest"
+	"github.com/autowert66/git-explorer/internal/shell"
+	"github.com/autowert66/git-explorer/internal/testutil"
+	"github.com/autowert66/git-explorer/internal/transport"
+	"github.com/autowert66/git-explorer/internal/vfs"
 )
 
 type result struct {

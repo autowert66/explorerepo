@@ -6,8 +6,8 @@ import (
 	"io"
 	"strings"
 
-	"explorerepo/internal/object"
-	"explorerepo/internal/vfs"
+	"github.com/autowert66/git-explorer/internal/object"
+	"github.com/autowert66/git-explorer/internal/vfs"
 )
 
 // ErrSkipDir may be returned from a Walk callback to avoid descending.

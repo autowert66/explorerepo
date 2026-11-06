@@ -6,12 +6,12 @@ import (
 	"strings"
 	"testing"
 
-	"explorerepo/internal/object"
-	"explorerepo/internal/repo"
-	"explorerepo/internal/repotest"
-	"explorerepo/internal/store"
-	"explorerepo/internal/testutil"
-	"explorerepo/internal/transport"
+	"github.com/autowert66/git-explorer/internal/object"
+	"github.com/autowert66/git-explorer/internal/repo"
+	"github.com/autowert66/git-explorer/internal/repotest"
+	"github.com/autowert66/git-explorer/internal/store"
+	"github.com/autowert66/git-explorer/internal/testutil"
+	"github.com/autowert66/git-explorer/internal/transport"
 )
 
 var ctx = context.Background()

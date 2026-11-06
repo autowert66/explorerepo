@@ -12,11 +12,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"explorerepo/internal/object"
-	"explorerepo/internal/pack"
-	"explorerepo/internal/protocol"
-	"explorerepo/internal/store"
-	"explorerepo/internal/transport"
+	"github.com/autowert66/git-explorer/internal/object"
+	"github.com/autowert66/git-explorer/internal/pack"
+	"github.com/autowert66/git-explorer/internal/protocol"
+	"github.com/autowert66/git-explorer/internal/store"
+	"github.com/autowert66/git-explorer/internal/transport"
 )
 
 // MaxWantsPerFetch caps want lines in one request.

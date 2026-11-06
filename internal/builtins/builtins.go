@@ -13,8 +13,8 @@ import (
 	"sort"
 	"strings"
 
-	"explorerepo/internal/repo"
-	"explorerepo/internal/vfs"
+	"github.com/autowert66/git-explorer/internal/repo"
+	"github.com/autowert66/git-explorer/internal/vfs"
 )
 
 // Config carries per-invocation limits and context for commands.

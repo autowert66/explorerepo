@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"explorerepo/internal/object"
+	"github.com/autowert66/git-explorer/internal/object"
 )
 
 // Fixture is a bare repository served by the local git-upload-pack.

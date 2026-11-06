@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"explorerepo/internal/testutil"
+	"github.com/autowert66/git-explorer/internal/testutil"
 )
 
 func TestPullMatchesGitArchive(t *testing.T) {

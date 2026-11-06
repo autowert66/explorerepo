@@ -10,7 +10,7 @@ import (
 	"hash"
 	"io"
 
-	"explorerepo/internal/object"
+	"github.com/autowert66/git-explorer/internal/object"
 )
 
 // Raw is a fully resolved object.

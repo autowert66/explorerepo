@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"explorerepo/internal/object"
-	"explorerepo/internal/pack"
-	"explorerepo/internal/transport"
+	"github.com/autowert66/git-explorer/internal/object"
+	"github.com/autowert66/git-explorer/internal/pack"
+	"github.com/autowert66/git-explorer/internal/transport"
 )
 
 // TestLiveProbe records filter behaviour against github.com. EXPLOREREPO_LIVE=1 to run.

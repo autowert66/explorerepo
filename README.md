@@ -19,7 +19,8 @@ explorerepo --repo torvalds/linux pull drivers/gpu/drm/i915 ./i915   # materiali
 ## Install
 
 ```sh
-go install ./cmd/explorerepo        # or: make build  (-> bin/explorerepo)
+go install github.com/autowert66/git-explorer/cmd/explorerepo@latest
+# or from a checkout: make build  (-> bin/explorerepo)
 ```
 
 Requirements: the Go version in `go.mod` to build; at run time only the system `ssh` (with a key that can reach the host) and, for

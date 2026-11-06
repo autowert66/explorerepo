@@ -4,10 +4,10 @@ import (
 	"context"
 	"testing"
 
-	"explorerepo/internal/object"
-	"explorerepo/internal/pack"
-	"explorerepo/internal/testutil"
-	"explorerepo/internal/transport"
+	"github.com/autowert66/git-explorer/internal/object"
+	"github.com/autowert66/git-explorer/internal/pack"
+	"github.com/autowert66/git-explorer/internal/testutil"
+	"github.com/autowert66/git-explorer/internal/transport"
 )
 
 func dial(t *testing.T, f *testutil.Fixture) *Client {

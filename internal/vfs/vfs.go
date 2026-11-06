@@ -12,8 +12,8 @@ import (
 	"sync"
 	"time"
 
-	"explorerepo/internal/object"
-	"explorerepo/internal/repo"
+	"github.com/autowert66/git-explorer/internal/object"
+	"github.com/autowert66/git-explorer/internal/repo"
 )
 
 // errno is an error with a coreutils-style message that still matches fs errors.

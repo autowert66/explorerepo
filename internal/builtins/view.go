@@ -11,7 +11,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"explorerepo/internal/vfs"
+	"github.com/autowert66/git-explorer/internal/vfs"
 )
 
 func init() {

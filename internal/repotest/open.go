@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
-	"explorerepo/internal/repo"
-	"explorerepo/internal/store"
-	"explorerepo/internal/transport"
+	"github.com/autowert66/git-explorer/internal/repo"
+	"github.com/autowert66/git-explorer/internal/store"
+	"github.com/autowert66/git-explorer/internal/transport"
 )
 
 // Open returns a Repo over the fixture with HEAD (or rev) resolved, using a

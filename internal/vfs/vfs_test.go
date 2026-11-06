@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"explorerepo/internal/repotest"
-	"explorerepo/internal/testutil"
-	"explorerepo/internal/vfs"
+	"github.com/autowert66/git-explorer/internal/repotest"
+	"github.com/autowert66/git-explorer/internal/testutil"
+	"github.com/autowert66/git-explorer/internal/vfs"
 )
 
 var ctx = context.Background()
