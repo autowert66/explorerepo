@@ -12,7 +12,7 @@ go install github.com/autowert66/explorerepo/cmd/explorerepo@latest
 Add this line to `AGENTS.md` or `CLAUDE.md`:
 
 ```markdown
-To read or search a remote git repo without cloning it, run `explorerepo --repo ORG/REPO -c '<ls|cat|head|tail|grep|find ...>'`; it is a read-only shell over SSH or HTTPS, and `explorerepo help` lists the commands.
+To read or search a remote git repo without cloning it, run `explorerepo --repo ORG/REPO -c '<shell script>'`; it is a read-only shell over SSH or HTTPS (ls, cat, head, tail, grep, find, pipes, loops, globs), so chain commands, e.g. `-c 'ls -A; echo --- README ---; find . -maxdepth 1 -iname "readme*" -print -exec head -n 20 {} \;'`. Run `explorerepo help` for the flags.
 ```
 
 Then agents work in place:
