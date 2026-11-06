@@ -50,18 +50,19 @@ func (s *safeBuf) String() string {
 }
 
 type procConn struct {
-	cmd    *exec.Cmd
-	in     io.WriteCloser
-	out    io.ReadCloser
-	stderr *safeBuf
-	once   sync.Once
-	done   chan struct{}
+	cmd     *exec.Cmd
+	in      io.WriteCloser
+	out     io.ReadCloser
+	stderr  *safeBuf
+	errDone chan struct{} // stderr fully copied
+	once    sync.Once
+	done    chan struct{}
 }
 
 // startProc starts cmd as a Conn. fatal, if set, is checked against stderr as
 // it arrives; once it reports true the process is killed so reads end.
 func startProc(cmd *exec.Cmd, fatal func(stderr string) bool) (Conn, error) {
-	c := &procConn{cmd: cmd, stderr: &safeBuf{}, done: make(chan struct{})}
+	c := &procConn{cmd: cmd, stderr: &safeBuf{}, errDone: make(chan struct{}), done: make(chan struct{})}
 	// Give the child a pipe we own instead of letting os/exec copy stderr:
 	// Wait() would otherwise block until *every* holder of the pipe exits, and
 	// an ssh ControlPersist master forked from this client inherits it.
@@ -96,12 +97,27 @@ func startProc(cmd *exec.Cmd, fatal func(stderr string) bool) (Conn, error) {
 			}
 		}
 		errR.Close()
+		close(c.errDone)
 	}()
 	go func() { cmd.Wait(); close(c.done) }()
 	return c, nil
 }
 
-func (c *procConn) Read(p []byte) (int, error)  { return c.out.Read(p) }
+// Read waits briefly for stderr once stdout ends, so a child that prints its
+// error and exits ("does not appear to be a git repository") is reported by
+// that error and not by the bare EOF. The wait is bounded: a ControlPersist
+// master inherits the stderr pipe and keeps it open.
+func (c *procConn) Read(p []byte) (int, error) {
+	n, err := c.out.Read(p)
+	if err != nil {
+		select {
+		case <-c.errDone:
+		case <-time.After(500 * time.Millisecond):
+		}
+	}
+	return n, err
+}
+
 func (c *procConn) Write(p []byte) (int, error) { return c.in.Write(p) }
 func (c *procConn) CloseWrite() error           { return c.in.Close() }
 func (c *procConn) Stderr() string              { return c.stderr.String() }
