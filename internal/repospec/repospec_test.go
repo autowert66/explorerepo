@@ -1,6 +1,9 @@
 package repospec
 
-import "testing"
+import (
+	"path/filepath"
+	"testing"
+)
 
 func TestParse(t *testing.T) {
 	cases := []struct {
@@ -40,9 +43,10 @@ func TestParse(t *testing.T) {
 }
 
 func TestParseLocal(t *testing.T) {
+	want, _ := filepath.Abs("/tmp/x.git")
 	for _, in := range []string{"/tmp/x.git", "file:///tmp/x.git"} {
 		sp, err := Parse(in)
-		if err != nil || !sp.Local || sp.Path != "/tmp/x.git" {
+		if err != nil || !sp.Local || sp.Path != want {
 			t.Errorf("%s: %+v %v", in, sp, err)
 		}
 	}

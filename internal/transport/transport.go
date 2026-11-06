@@ -9,7 +9,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -56,7 +58,9 @@ type procConn struct {
 	done   chan struct{}
 }
 
-func startProc(cmd *exec.Cmd) (Conn, error) {
+// startProc starts cmd as a Conn. fatal, if set, is checked against stderr as
+// it arrives; once it reports true the process is killed so reads end.
+func startProc(cmd *exec.Cmd, fatal func(stderr string) bool) (Conn, error) {
 	c := &procConn{cmd: cmd, stderr: &safeBuf{}, done: make(chan struct{})}
 	// Give the child a pipe we own instead of letting os/exec copy stderr:
 	// Wait() would otherwise block until *every* holder of the pipe exits, and
@@ -78,7 +82,21 @@ func startProc(cmd *exec.Cmd) (Conn, error) {
 		return nil, fmt.Errorf("starting %s: %w", filepath.Base(cmd.Path), err)
 	}
 	errW.Close()
-	go func() { io.Copy(c.stderr, errR); errR.Close() }()
+	go func() {
+		buf := make([]byte, 4096)
+		for {
+			n, err := errR.Read(buf)
+			c.stderr.Write(buf[:n])
+			if fatal != nil && fatal(c.stderr.String()) {
+				cmd.Process.Kill()
+				fatal = nil
+			}
+			if err != nil {
+				break
+			}
+		}
+		errR.Close()
+	}()
 	go func() { cmd.Wait(); close(c.done) }()
 	return c, nil
 }
@@ -110,7 +128,7 @@ type Local struct{ Path string }
 func (l Local) Open(ctx context.Context) (Conn, error) {
 	cmd := exec.Command("git", "upload-pack", "--strict", l.Path)
 	cmd.Env = append(os.Environ(), "GIT_PROTOCOL=version=2")
-	return startProc(cmd)
+	return startProc(cmd, nil)
 }
 
 // SSH runs git-upload-pack on a remote host through the system ssh binary.
@@ -138,8 +156,9 @@ func (s SSH) Args() ([]string, error) {
 	args := []string{"-o", "SendEnv=GIT_PROTOCOL", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10"}
 	// Always set ControlPath explicitly: a user-configured ControlMaster that
 	// was started without SendEnv=GIT_PROTOCOL silently drops the variable
-	// and the server falls back to protocol v0.
-	if s.NoMux {
+	// and the server falls back to protocol v0. OpenSSH for Windows has no
+	// control sockets ("getsockname failed: Not a socket"), so never mux there.
+	if s.NoMux || runtime.GOOS == "windows" {
 		args = append(args, "-o", "ControlMaster=no", "-o", "ControlPath=none")
 	} else {
 		dir, err := MuxDir()
@@ -166,7 +185,26 @@ func (s SSH) Open(ctx context.Context) (Conn, error) {
 	}
 	cmd := exec.Command("ssh", args...)
 	cmd.Env = append(os.Environ(), "GIT_PROTOCOL=version=2")
-	return startProc(cmd)
+	var fatal func(string) bool
+	if runtime.GOOS == "windows" {
+		fatal = sshFatal
+	}
+	return startProc(cmd, fatal)
+}
+
+// sshFatal matches the errors after which OpenSSH for Windows (seen with
+// 9.5p2) keeps running instead of exiting, which would otherwise stall the
+// caller until --timeout and starve the HTTPS fallback.
+func sshFatal(stderr string) bool {
+	for _, m := range []string{
+		"Host key verification failed", "Permission denied", "Could not resolve hostname",
+		"Connection refused", "Connection timed out", "Connection closed by", "kex_exchange_identification",
+	} {
+		if strings.Contains(stderr, m) {
+			return true
+		}
+	}
+	return false
 }
 
 // Counting wraps a Transport and records usage; used by tests to assert batching.

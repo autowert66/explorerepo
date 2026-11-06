@@ -2,6 +2,8 @@ package repotest
 
 import (
 	"context"
+	"crypto/sha1"
+	"fmt"
 	"testing"
 
 	"github.com/autowert66/explorerepo/internal/repo"
@@ -18,7 +20,7 @@ func Open(t testing.TB, bare, cacheDir, rev string) (*repo.Repo, *transport.Coun
 		t.Fatal(err)
 	}
 	ct := transport.NewCounting(transport.Local{Path: bare})
-	r := repo.New(repo.Config{Transport: ct, Store: st, CacheKey: "test-" + bare, Display: "fixture"})
+	r := repo.New(repo.Config{Transport: ct, Store: st, CacheKey: fmt.Sprintf("test-%x", sha1.Sum([]byte(bare))), Display: "fixture"})
 	t.Cleanup(r.Close)
 	if err := r.Open(context.Background(), rev); err != nil {
 		t.Fatal(err)

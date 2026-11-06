@@ -11,6 +11,7 @@ import (
 	"io/fs"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"sync/atomic"
 
@@ -179,7 +180,7 @@ func Run(ctx context.Context, opt Options, script string) Result {
 		interp.ExecHandlers(func(interp.ExecHandlerFunc) interp.ExecHandlerFunc {
 			return func(ctx context.Context, args []string) error {
 				hc := interp.HandlerCtx(ctx)
-				st := r.exec(ctx, hc.Dir, args, hc.Stdin, hc.Stdout, hc.Stderr)
+				st := r.exec(ctx, vpath(hc.Dir), args, hc.Stdin, hc.Stdout, hc.Stderr)
 				if st == 0 {
 					return nil
 				}
@@ -236,6 +237,7 @@ func (devNull) Write(p []byte) (int, error) { return len(p), nil }
 func (devNull) Close() error                { return nil }
 
 func (r *runner) open(ctx context.Context, p string, flag int, perm os.FileMode) (io.ReadWriteCloser, error) {
+	p = vpath(p)
 	switch p {
 	case "/dev/null":
 		return devNull{}, nil
@@ -262,6 +264,7 @@ func (r *runner) open(ctx context.Context, p string, flag int, perm os.FileMode)
 }
 
 func (r *runner) readDir(ctx context.Context, p string) ([]fs.DirEntry, error) {
+	p = vpath(p)
 	nodes, err := r.opt.FS.ReadDir(ctx, p)
 	if err != nil {
 		return nil, err
@@ -274,6 +277,7 @@ func (r *runner) readDir(ctx context.Context, p string) ([]fs.DirEntry, error) {
 }
 
 func (r *runner) stat(ctx context.Context, p string, follow bool) (fs.FileInfo, error) {
+	p = vpath(p)
 	var n *vfs.Node
 	var err error
 	if follow {
@@ -288,6 +292,7 @@ func (r *runner) stat(ctx context.Context, p string, follow bool) (fs.FileInfo, 
 }
 
 func (r *runner) access(ctx context.Context, p string, mode interp.AccessMode) error {
+	p = vpath(p)
 	n, err := r.opt.FS.Stat(ctx, p)
 	if err != nil {
 		return err
@@ -301,11 +306,48 @@ func (r *runner) access(ctx context.Context, p string, mode interp.AccessMode) e
 	return nil
 }
 
+// vpath maps a path from the interpreter back into the virtual tree. The
+// interpreter resolves paths with path/filepath, so on Windows "/a/b" arrives
+// as `C:\a\b`; elsewhere this is the identity.
+func vpath(p string) string {
+	return filepath.ToSlash(strings.TrimPrefix(p, filepath.VolumeName(p)))
+}
+
+// slashGlobs undoes the interpreter's Windows separators in glob results:
+// a/*.txt expands to `a\\x.txt` there. An argument is rewritten only when its
+// slash form names a path and the literal one does not, so patterns such as
+// 'a\\.b' stay as written.
+func (r *runner) slashGlobs(ctx context.Context, args []string) {
+	if filepath.Separator == '/' {
+		return
+	}
+	dir := vpath(interp.HandlerCtx(ctx).Dir)
+	abs := func(p string) string {
+		if strings.HasPrefix(p, "/") {
+			return p
+		}
+		return path.Join(dir, p)
+	}
+	for i, a := range args {
+		if !strings.Contains(a, `\`) {
+			continue
+		}
+		s := filepath.ToSlash(a)
+		if _, err := r.opt.FS.Lstat(ctx, abs(a)); err == nil {
+			continue
+		}
+		if _, err := r.opt.FS.Lstat(ctx, abs(s)); err == nil {
+			args[i] = s
+		}
+	}
+}
+
 // call intercepts "cd" so failures read like coreutils errors (and name
 // submodules), the availability probes "type" and "command -v" so they see
 // the builtins the shell actually provides, and "help", which the interpreter
 // would otherwise answer with its own builtin list.
 func (r *runner) call(ctx context.Context, args []string) ([]string, error) {
+	r.slashGlobs(ctx, args)
 	if args[0] == "help" {
 		text, ok := builtins.Help(args[1:])
 		w := interp.HandlerCtx(ctx).Stdout
@@ -325,6 +367,9 @@ func (r *runner) call(ctx context.Context, args []string) ([]string, error) {
 		}
 		return args, nil
 	}
+	if args[0] == "pwd" && filepath.Separator != '/' {
+		return []string{"echo", vpath(interp.HandlerCtx(ctx).Dir)}, nil
+	}
 	if args[0] != "cd" {
 		return args, nil
 	}
@@ -335,15 +380,19 @@ func (r *runner) call(ctx context.Context, args []string) ([]string, error) {
 		}
 		operands = append(operands, a)
 	}
+	hc := interp.HandlerCtx(ctx)
+	if len(operands) == 0 && filepath.Separator != '/' {
+		operands = []string{"/"}
+	}
 	if len(operands) != 1 || operands[0] == "-" {
 		return args, nil
 	}
-	hc := interp.HandlerCtx(ctx)
 	abs := operands[0]
 	if !strings.HasPrefix(abs, "/") {
-		abs = path.Join(hc.Dir, abs)
+		abs = path.Join(vpath(hc.Dir), abs)
 	}
-	n, err := r.opt.FS.Stat(ctx, path.Clean(abs))
+	abs = path.Clean(abs)
+	n, err := r.opt.FS.Stat(ctx, abs)
 	switch {
 	case err != nil:
 		fmt.Fprintf(hc.Stderr, "cd: %s: %v\n", operands[0], err)
@@ -351,6 +400,10 @@ func (r *runner) call(ctx context.Context, args []string) ([]string, error) {
 		fmt.Fprintf(hc.Stderr, "cd: %s: %v\n", operands[0], &vfs.SubmoduleError{Commit: n.OID})
 	case !n.IsDir():
 		fmt.Fprintf(hc.Stderr, "cd: %s: %v\n", operands[0], vfs.ErrNotDir)
+	case filepath.Separator != '/':
+		// The interpreter would join a rooted "/x" onto the current
+		// directory, as filepath.IsAbs wants a volume; hand it one.
+		return []string{"cd", filepath.VolumeName(hc.Dir) + filepath.FromSlash(abs)}, nil
 	default:
 		return args, nil
 	}

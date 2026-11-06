@@ -1,11 +1,15 @@
 package transport
 
 import (
+	"runtime"
 	"strings"
 	"testing"
 )
 
 func TestSSHArgs(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("OpenSSH for Windows has no control sockets; see TestSSHArgsNoMuxAndPort")
+	}
 	args, err := SSH{User: "git", Host: "github.com", Path: "o/r.git"}.Args()
 	if err != nil {
 		t.Fatal(err)

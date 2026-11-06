@@ -5,6 +5,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -258,7 +259,13 @@ func TestRevSelection(t *testing.T) {
 func TestEnvVars(t *testing.T) {
 	f := testutil.NewFixture(t)
 	r := run(t, f, `echo "$COMMIT"; echo "$PWD"; echo "[$PATH]"`)
-	expect(t, "env", r, f.Commit2.String()+"\n/\n[]\n", 0)
+	// The interpreter keeps $PWD in host form, so it carries the drive on
+	// Windows ("C:\\"); pwd prints the virtual path either way.
+	pwd := "/"
+	if runtime.GOOS == "windows" {
+		pwd, _ = filepath.Abs("/")
+	}
+	expect(t, "env", r, f.Commit2.String()+"\n"+pwd+"\n[]\n", 0)
 }
 
 func TestHostileTree(t *testing.T) {

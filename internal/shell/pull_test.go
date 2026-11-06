@@ -12,7 +12,7 @@ import (
 
 func TestPullMatchesGitArchive(t *testing.T) {
 	f := testutil.NewFixture(t)
-	dest := filepath.Join(t.TempDir(), "all")
+	dest := filepath.ToSlash(filepath.Join(t.TempDir(), "all")) // a bare \ is a shell escape
 	r := runAt(t, f.Bare, "", "HEAD", "pull / "+dest)
 	if r.status != 0 {
 		t.Fatalf("status %d stderr %s", r.status, r.err)
@@ -76,8 +76,8 @@ func TestPullMatchesGitArchive(t *testing.T) {
 
 func TestPullSubtreeAndFile(t *testing.T) {
 	f := testutil.NewFixture(t)
-	tmp := t.TempDir()
-	r := runAt(t, f.Bare, "", "HEAD", "pull a/b "+filepath.Join(tmp, "b")+"; pull a/a.txt "+filepath.Join(tmp, "one.txt"))
+	tmp := filepath.ToSlash(t.TempDir())
+	r := runAt(t, f.Bare, "", "HEAD", "pull a/b "+tmp+"/b; pull a/a.txt "+tmp+"/one.txt")
 	if r.status != 0 {
 		t.Fatalf("status %d: %s", r.status, r.err)
 	}
@@ -122,9 +122,11 @@ func TestPullRefusesThroughSymlink(t *testing.T) {
 	f := testutil.NewFixture(t)
 	tmp := t.TempDir()
 	outside := t.TempDir()
-	dest := filepath.Join(tmp, "dest")
+	dest := filepath.ToSlash(filepath.Join(tmp, "dest"))
 	os.MkdirAll(dest, 0o755)
-	os.Symlink(outside, filepath.Join(dest, "c")) // dest/c -> elsewhere
+	if err := os.Symlink(outside, filepath.Join(dest, "c")); err != nil { // dest/c -> elsewhere
+		t.Skip(err)
+	}
 	r := runAt(t, f.Bare, "", "HEAD", "pull -f a/b "+dest)
 	if r.status == 0 || !strings.Contains(r.err, "refusing to write through") {
 		t.Errorf("status %d err %q", r.status, r.err)

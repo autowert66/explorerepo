@@ -89,6 +89,10 @@ func Parse(s string) (*Spec, error) {
 		if err != nil {
 			return nil, err
 		}
+		// file:///C:/x.git carries the drive letter after the leading slash.
+		if p := strings.TrimPrefix(u.Path, "/"); filepath.VolumeName(p) != "" {
+			return local(p)
+		}
 		return local(u.Path)
 	case strings.HasPrefix(s, "ssh://"):
 		u, err := url.Parse(s)
@@ -105,6 +109,9 @@ func Parse(s string) (*Spec, error) {
 		sp.Path = sshPath(u.Path)
 		return finish(sp)
 	case strings.HasPrefix(s, "/") || strings.HasPrefix(s, "./") || strings.HasPrefix(s, "../") || s == "." || strings.HasPrefix(s, "~"):
+		return local(s)
+	case filepath.VolumeName(s) != "" || filepath.Separator == '\\' && (strings.HasPrefix(s, `.\`) || strings.HasPrefix(s, `..\`)):
+		// Windows: C:\x.git, C:/x.git, \\server\share\x.git, .\x.git
 		return local(s)
 	}
 	if m := scp.FindStringSubmatch(s); m != nil {
