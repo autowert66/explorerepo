@@ -3,6 +3,7 @@ package builtins
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -60,7 +61,10 @@ func authorName(sig string) string {
 }
 
 func logCmd(ctx context.Context, env *Env, args []string) int {
-	p, ok := env.parse("log", args, []Opt{{Short: 'n', Arg: true}, {Long: "oneline"}, {Long: "max-count", Arg: true, Key: "n"}}, "n")
+	p, ok := env.parse("log", args, []Opt{
+		{Short: 'n', Arg: true}, {Long: "oneline"}, {Long: "max-count", Arg: true, Key: "n"},
+		{Long: "decorate"}, {Long: "no-decorate"},
+	}, "n")
 	if !ok {
 		return ExitUsage
 	}
@@ -90,17 +94,39 @@ func logCmd(ctx context.Context, env *Env, args []string) int {
 		env.PathErr("log", "", err)
 		return ExitFail
 	}
+	// Ref decorations follow git's log.decorate=auto: shown at a human
+	// terminal, off for pipes and agents. --decorate / --no-decorate force it.
+	decorate := env.Human
+	if p.Has("decorate") {
+		decorate = true
+	}
+	if p.Has("no-decorate") {
+		decorate = false
+	}
+	var dec map[object.OID][]deco
+	head := ""
+	if decorate {
+		dec, head = env.decorations(ctx)
+	}
 	for i, e := range entries {
 		msg := strings.TrimRight(e.Commit.Message, "\n")
+		refs := ""
+		if decorate {
+			refs = env.decorate(dec[e.OID], head)
+		}
 		if p.Has("oneline") {
 			subj, _, _ := strings.Cut(msg, "\n")
-			env.Stdout.Printf("%s %s\n", e.OID.String()[:7], subj)
+			env.Stdout.WriteString(env.Color.Yellow(e.OID.String()[:7]))
+			env.Stdout.WriteString(refs)
+			env.Stdout.Printf(" %s\n", subj)
 			continue
 		}
 		if i > 0 {
 			env.Stdout.WriteString("\n")
 		}
-		env.Stdout.Printf("commit %s\nAuthor: %s\nDate:   %s\n\n", e.OID, authorName(e.Commit.Author), e.Commit.AuthorTime.Format("Mon Jan _2 15:04:05 2006 -0700"))
+		env.Stdout.WriteString(env.Color.Yellow("commit " + e.OID.String()))
+		env.Stdout.WriteString(refs)
+		env.Stdout.Printf("\nAuthor: %s\nDate:   %s\n\n", authorName(e.Commit.Author), e.Commit.AuthorTime.Format("Mon Jan _2 15:04:05 2006 -0700"))
 		for _, l := range strings.Split(msg, "\n") {
 			env.Stdout.Printf("    %s\n", l)
 		}
@@ -108,7 +134,106 @@ func logCmd(ctx context.Context, env *Env, args []string) int {
 	return ExitOK
 }
 
-const gitUsage = "only these git subcommands are available: log [-n N] [--oneline], show REV:PATH, ls-tree [-r] [-d] [--name-only] REV [PATH], rev-parse [REV]"
+// decoKind is the type of a ref shown by `log --decorate`.
+type decoKind int
+
+const (
+	decoLocal decoKind = iota
+	decoRemote
+	decoTag
+	decoHEAD
+)
+
+// deco is one ref shown after a commit hash, as in git log --decorate.
+type deco struct {
+	ref  string // full refname, or "HEAD"
+	name string // the short name git prints
+	kind decoKind
+}
+
+// decorations maps each commit to the refs that point at it, in the order git
+// prints them: HEAD first, then refs by descending name. head is the branch
+// HEAD resolves to, if any, so HEAD can be shown as "HEAD -> branch".
+func (e *Env) decorations(ctx context.Context) (map[object.OID][]deco, string) {
+	refs, err := e.Repo.ListRefs(ctx, []string{"HEAD", "refs/heads/", "refs/remotes/", "refs/tags/"})
+	if err != nil {
+		return nil, ""
+	}
+	m := map[object.OID][]deco{}
+	head := ""
+	for _, r := range refs {
+		switch {
+		case r.Name == "HEAD":
+			if r.SymrefTarget != "" {
+				head = r.SymrefTarget
+			}
+			m[r.OID] = append(m[r.OID], deco{"HEAD", "HEAD", decoHEAD})
+		case strings.HasPrefix(r.Name, "refs/heads/"):
+			m[r.OID] = append(m[r.OID], deco{r.Name, r.Name[len("refs/heads/"):], decoLocal})
+		case strings.HasPrefix(r.Name, "refs/remotes/"):
+			m[r.OID] = append(m[r.OID], deco{r.Name, r.Name[len("refs/remotes/"):], decoRemote})
+		case strings.HasPrefix(r.Name, "refs/tags/"):
+			oid := r.OID
+			if !r.Peeled.IsZero() {
+				oid = r.Peeled // an annotated tag decorates the commit it peels to
+			}
+			m[oid] = append(m[oid], deco{r.Name, r.Name[len("refs/tags/"):], decoTag})
+		}
+	}
+	for _, ds := range m {
+		sort.SliceStable(ds, func(i, j int) bool {
+			if hi, hj := ds[i].kind == decoHEAD, ds[j].kind == decoHEAD; hi != hj {
+				return hi // HEAD first
+			}
+			return ds[i].ref > ds[j].ref // then refs by descending name, like git
+		})
+	}
+	return m, head
+}
+
+// decorate renders the " (HEAD -> main, origin/main, tag: v1)" suffix git shows
+// after a commit hash, or "" when the commit has no refs.
+func (e *Env) decorate(ds []deco, head string) string {
+	if len(ds) == 0 {
+		return ""
+	}
+	current := ""
+	for _, d := range ds {
+		if d.kind == decoLocal && d.ref == head {
+			current = d.name
+		}
+	}
+	var b strings.Builder
+	b.WriteString(e.Color.Yellow(" ("))
+	first := true
+	for _, d := range ds {
+		if d.kind == decoLocal && d.ref == head {
+			continue // shown merged into HEAD below, as git does
+		}
+		if !first {
+			b.WriteString(e.Color.Yellow(", "))
+		}
+		first = false
+		switch d.kind {
+		case decoHEAD:
+			b.WriteString(e.Color.BoldCyan("HEAD"))
+			if current != "" {
+				b.WriteString(e.Color.Yellow(" -> "))
+				b.WriteString(e.Color.BoldGreen(current))
+			}
+		case decoLocal:
+			b.WriteString(e.Color.BoldGreen(d.name))
+		case decoRemote:
+			b.WriteString(e.Color.BoldRed(d.name))
+		case decoTag:
+			b.WriteString(e.Color.BoldYellow("tag: " + d.name))
+		}
+	}
+	b.WriteString(e.Color.Yellow(")"))
+	return b.String()
+}
+
+const gitUsage = "only these git subcommands are available: log [-n N] [--oneline] [--decorate], show REV:PATH, ls-tree [-r] [-d] [--name-only] REV [PATH], rev-parse [REV]"
 
 func gitCmd(ctx context.Context, env *Env, args []string) int {
 	if len(args) == 0 {

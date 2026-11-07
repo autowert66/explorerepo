@@ -49,6 +49,14 @@ func Enabled(w io.Writer, mode string) bool {
 	if set("CLICOLOR_FORCE") || set("FORCE_COLOR") {
 		return true
 	}
+	return IsTerminal(w)
+}
+
+// IsTerminal reports whether w is a human's terminal: a tty that is not an
+// agent harness and not TERM=dumb. It ignores the --color mode and NO_COLOR, so
+// human-only output that is not color (git log decorations) follows the
+// terminal itself.
+func IsTerminal(w io.Writer) bool {
 	for _, k := range agentEnv {
 		if os.Getenv(k) != "" {
 			return false
@@ -77,13 +85,23 @@ func (s Styler) wrap(code, t string) string {
 	return "\x1b[" + code + "m" + t + Reset
 }
 
-func (s Styler) Bold(t string) string   { return s.wrap("1", t) }
-func (s Styler) Dim(t string) string    { return s.wrap("2", t) }
-func (s Styler) Red(t string) string    { return s.wrap("31", t) }
-func (s Styler) Green(t string) string  { return s.wrap("32", t) }
-func (s Styler) Yellow(t string) string { return s.wrap("33", t) }
-func (s Styler) Cyan(t string) string   { return s.wrap("36", t) }
-func (s Styler) Err(t string) string    { return s.wrap("1;31", t) }
+func (s Styler) Bold(t string) string    { return s.wrap("1", t) }
+func (s Styler) Dim(t string) string     { return s.wrap("2", t) }
+func (s Styler) Red(t string) string     { return s.wrap("31", t) }
+func (s Styler) Green(t string) string   { return s.wrap("32", t) }
+func (s Styler) Yellow(t string) string  { return s.wrap("33", t) }
+func (s Styler) Magenta(t string) string { return s.wrap("35", t) }
+func (s Styler) Cyan(t string) string    { return s.wrap("36", t) }
+func (s Styler) Err(t string) string     { return s.wrap("1;31", t) }
+
+// Bold-foreground styles for the git/coreutils defaults: ls file kinds, git log
+// decorations and grep/rg match highlighting.
+func (s Styler) BoldRed(t string) string     { return s.wrap("1;31", t) }
+func (s Styler) BoldGreen(t string) string   { return s.wrap("1;32", t) }
+func (s Styler) BoldYellow(t string) string  { return s.wrap("1;33", t) }
+func (s Styler) BoldBlue(t string) string    { return s.wrap("1;34", t) }
+func (s Styler) BoldMagenta(t string) string { return s.wrap("1;35", t) }
+func (s Styler) BoldCyan(t string) string    { return s.wrap("1;36", t) }
 
 var (
 	colonHead = regexp.MustCompile(`^([A-Za-z][\w-]*:)(\s.*)?$`) // "usage: ...", "env:  ..."

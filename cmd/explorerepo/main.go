@@ -187,7 +187,8 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		name = name[i+1:]
 	}
 	opt := shell.Options{
-		Repo: r, FS: fsys, Stdin: stdin, Stdout: stdout, Stderr: stderr, MaxOutput: int64(maxOutput), Color: outC.On,
+		Repo: r, FS: fsys, Stdin: stdin, Stdout: stdout, Stderr: stderr, MaxOutput: int64(maxOutput),
+		Color: outC.On, Human: color.IsTerminal(stdout),
 		Cfg: &builtins.Config{MaxFiles: *maxFiles, RepoName: name, Rev: *rev},
 	}
 

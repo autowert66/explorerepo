@@ -118,10 +118,26 @@ func lsCmd(ctx context.Context, env *Env, args []string) int {
 	return status
 }
 
+// lsColor styles a name by file kind, like the coreutils LS_COLORS defaults
+// (directories bold blue, executables bold green, symlinks bold cyan). Only the
+// name is styled: the mode and size columns keep their plain widths.
+func lsColor(env *Env, n *vfs.Node, name string) string {
+	switch {
+	case n.IsDir() || n.IsGitlink():
+		return env.Color.BoldBlue(name)
+	case n.IsExec():
+		return env.Color.BoldGreen(name)
+	case n.IsSymlink():
+		return env.Color.BoldCyan(name)
+	}
+	return name
+}
+
 func lsPrint(ctx context.Context, env *Env, items []lsItem, long, classify bool) {
 	if !long {
 		for _, it := range items {
-			env.Stdout.WriteString(it.name + classifySuffix(it.node, classify) + "\n")
+			name := it.name + classifySuffix(it.node, classify)
+			env.Stdout.WriteString(lsColor(env, it.node, name) + "\n")
 		}
 		return
 	}
@@ -162,12 +178,13 @@ func lsPrint(ctx context.Context, env *Env, items []lsItem, long, classify bool)
 	}
 	for i, it := range items {
 		name := it.name + classifySuffix(it.node, classify)
+		styled := lsColor(env, it.node, name)
 		if it.node.IsSymlink() {
 			if b, err := env.Repo.Blob(ctx, it.node.OID); err == nil {
-				name += " -> " + string(b)
+				styled += " -> " + string(b)
 			}
 		}
-		env.Stdout.Printf("%s %*s %s\n", modeString(it.node), width, cols[i], name)
+		env.Stdout.Printf("%s %*s %s\n", modeString(it.node), width, cols[i], styled)
 	}
 }
 
@@ -273,12 +290,13 @@ func treeCmd(ctx context.Context, env *Env, args []string) int {
 	env.Repo.Blobs(ctx, links)
 	for _, l := range lines {
 		name := l.n.Name + classifySuffix(l.n, classify)
+		styled := lsColor(env, l.n, name)
 		if l.n.IsSymlink() {
 			if b, err := env.Repo.Blob(ctx, l.n.OID); err == nil {
-				name += " -> " + string(b)
+				styled += " -> " + string(b)
 			}
 		}
-		env.Stdout.WriteString(l.prefix + name + "\n")
+		env.Stdout.WriteString(l.prefix + styled + "\n")
 	}
 	summary := fmt.Sprintf("%d %s", dirsN, plural(dirsN, "directory", "directories"))
 	if !dirsOnly {

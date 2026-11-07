@@ -263,7 +263,7 @@ func TestBadComponent(t *testing.T) {
 // TestHelpStyledRoundTrip: styling only adds escapes, for every page.
 func TestHelpStyledRoundTrip(t *testing.T) {
 	on := Styler{On: true}
-	for _, args := range [][]string{nil, {"repos"}, {"flags"}, {"about"}, {"pull"}, {"which"}, {"grep"}} {
+	for _, args := range [][]string{nil, {"repos"}, {"flags"}, {"about"}, {"pull"}, {"which"}, {"log"}, {"grep"}} {
 		text, ok := Help(args)
 		if got := HelpStyled(on, args, text, ok); color.Strip(got) != text || got == text {
 			t.Errorf("help %v: styled text does not strip back to the original", args)

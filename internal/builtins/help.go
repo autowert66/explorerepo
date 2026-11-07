@@ -117,7 +117,8 @@ const helpFlags = `Options come before the command or -c script.
   --max-files N     cap the files a recursive content scan may fetch (default 20000).
   --timeout D       overall wall-clock limit (default 60s); on expiry, exit 124.
   --check           test ssh and HTTPS against SPEC step by step, then exit 0 or 128.
-  --color WHEN      color the help and --check for a terminal: auto (default), always, never.
+  --color WHEN      color output for a terminal: auto (default), always, never. At a terminal it
+                    styles the help, --check, ls/tree names, rg/grep matches and the log hash.
                     auto is off for pipes, agents, NO_COLOR and TERM=dumb; FORCE_COLOR forces it.
   --version         print the version and source URL, then exit.
   -h, --help [TOPIC]  print this short usage, or a topic: --help repos, --help flags, ...
@@ -158,6 +159,13 @@ var helpDetail = map[string]string{
   'command -v NAME' report the same set (bare names). Use it to check a tool exists before
   running it; do not fall back to a worse tool because the probe printed a name, not a path.
 `,
+	"log": `log [-n N] [--oneline] [--decorate|--no-decorate] [REV]
+  Commit history of REV (default: the opened revision), newest first. Whole repository, no path
+  filtering. At a terminal the hash is colored and each commit is followed by its refs as git
+  shows them: (HEAD -> branch, branches, remote branches, tag: name). The refs are plain text,
+  not color: they appear whenever stdout is a terminal, or with --decorate, and never into a
+  pipe. --no-decorate turns them off.
+`,
 }
 
 const helpText = `explorerepo: a read-only shell over one commit of a remote git repo (no clone).
@@ -177,7 +185,7 @@ SEARCH    grep [-rRnivwxlLcohHFEGPIaqs] [-m N] [-A|-B|-C N] [-e PAT]... PATTERN 
 TEXT      sort [-r -n -u -f -s -h] [-k N[,M]] [-t C]   uniq [-c -d -u -i]   cut -d C -f LIST | -c LIST [-s]
           tr [-d -s -c] SET1 [SET2]   xargs [-n N | -I R] [-0] [-r] CMD...   basename dirname tee
 REPO      refs [PREFIX]                list branches/tags (HEAD, refs/heads/, refs/tags/ by default)
-          log [-n N] [--oneline] [REV] history of the revision (whole repo, no path filter)
+          log [-n N] [--oneline] [--decorate] [REV]  history of the revision (no path filter)
           git log | git show REV:PATH | git ls-tree [-r -d --name-only] REV [PATH] | git rev-parse [REV]
           pull [-f] PATH [DEST]        copy a file/dir to the real disk (see 'help pull')
 SHELL     pipes, && || ; $(...), for/while/if, globs (src/*.go), redirect to /dev/null, cd, pwd, echo,
@@ -188,6 +196,7 @@ PROBE     type NAME... | command -v NAME... | which NAME...   report the command
           since these are builtins with no path. CMD --version and CMD --help print a stub.
 Notes     Symlinks pointing outside the repo error out; submodules are empty dirs ('not fetched');
           LFS files show as pointer text. 'ls -l' sizes are '?' when not yet downloaded.
+          At a terminal, ls/tree, rg/grep and the log hash are colored and log shows refs (see 'help log').
 More      help flags (command-line options)   help repos (hosts, URL forms, private repos)
           help agents (line for AGENTS.md)     help about (version, source, cache, exit codes)
 

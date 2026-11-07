@@ -83,7 +83,10 @@ options: --rev (alias --hash)  --refresh  --no-cache  --no-mux  --https  --no-ht
 env:     EXPLOREREPO_REPO (default --repo)  EXPLOREREPO_CACHE  EXPLOREREPO_DEBUG=1  EXPLOREREPO_QUIET  NO_COLOR
 ```
 
-At a terminal, the help and `--check` output are colored. Pipes, redirects, and agents get plain
+At a terminal, human-facing output is colored: the help and `--check` text, `ls`/`tree` names by kind,
+`rg`/`grep` filenames, line numbers and matches, and the `git log` commit hash. `log` also shows ref
+decorations like git (`HEAD -> main`, branches, remote branches, `tag: v1`) whenever stdout is a
+terminal, independent of `--color`. Pipes, redirects, and agents get plain
 text: `auto` turns color off when stdout is not a terminal, when `NO_COLOR` is set or `TERM=dumb`, and
 under agent harnesses that set `CLAUDECODE`, `CODEX_SANDBOX`, `GEMINI_CLI` or `CURSOR_AGENT` (some run
 commands in a pseudo-terminal). `FORCE_COLOR` or `CLICOLOR_FORCE` turns it on anyway.

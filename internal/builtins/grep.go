@@ -423,7 +423,7 @@ func runGrep(ctx context.Context, env *Env, cfg *grepCfg, paths []string) int {
 	if cfg.filesOnly {
 		for _, t := range targets {
 			if t.node != nil {
-				env.Stdout.WriteString(t.display + "\n")
+				env.Stdout.WriteString(env.Color.Magenta(t.display) + "\n")
 			}
 		}
 		if len(targets) == 0 {
@@ -525,14 +525,38 @@ type grepRun struct {
 func (g *grepRun) prefix(name string, lineNo int, sep byte) string {
 	var b strings.Builder
 	if g.showName {
-		b.WriteString(name)
+		b.WriteString(g.env.Color.Magenta(name))
 		b.WriteByte(sep)
 	}
 	if g.cfg.lineNum {
-		b.WriteString(strconv.Itoa(lineNo))
+		b.WriteString(g.env.Color.Green(strconv.Itoa(lineNo)))
 		b.WriteByte(sep)
 	}
 	return b.String()
+}
+
+// highlight wraps every match in a selected line with the match color, like
+// ripgrep's default "match:fg:red:style:bold". Context lines, inverted matches
+// and a run without color are returned unchanged.
+func (g *grepRun) highlight(ln []byte) []byte {
+	if !g.env.Color.On || g.cfg.invert {
+		return ln
+	}
+	locs := g.re.FindAllIndex(ln, -1)
+	if len(locs) == 0 {
+		return ln
+	}
+	out := make([]byte, 0, len(ln)+16)
+	last := 0
+	for _, m := range locs {
+		if m[1] <= m[0] {
+			continue
+		}
+		out = append(out, ln[last:m[0]]...)
+		out = append(out, g.env.Color.BoldRed(string(ln[m[0]:m[1]]))...)
+		last = m[1]
+	}
+	return append(out, ln[last:]...)
 }
 
 func (g *grepRun) scan(name string, data []byte) {
@@ -540,7 +564,7 @@ func (g *grepRun) scan(name string, data []byte) {
 	binary := !cfg.text && IsBinary(data)
 	if binary && cfg.skipBinary {
 		if cfg.listNon {
-			out.WriteString(name + "\n")
+			out.WriteString(g.env.Color.Magenta(name) + "\n")
 		}
 		return
 	}
@@ -549,12 +573,16 @@ func (g *grepRun) scan(name string, data []byte) {
 	lastPrinted := -1
 	afterLeft := 0
 	contextOn := cfg.after > 0 || cfg.before > 0
-	printLine := func(i int, sep byte) {
+	printLine := func(i int, sep byte, selected bool) {
 		if contextOn && lastPrinted >= 0 && i > lastPrinted+1 || contextOn && lastPrinted < 0 && g.printedAny {
 			out.WriteString("--\n")
 		}
 		out.WriteString(g.prefix(name, i+1, sep))
-		out.Write(lines[i])
+		if selected {
+			out.Write(g.highlight(lines[i]))
+		} else {
+			out.Write(lines[i])
+		}
 		out.WriteString("\n")
 		lastPrinted = i
 		g.printedAny = true
@@ -568,7 +596,7 @@ func (g *grepRun) scan(name string, data []byte) {
 		hit := g.re.Match(ln) != cfg.invert
 		if !hit {
 			if !quietScan && !binary && afterLeft > 0 {
-				printLine(i, '-')
+				printLine(i, '-', false)
 				afterLeft--
 			}
 			continue
@@ -589,16 +617,16 @@ func (g *grepRun) scan(name string, data []byte) {
 						continue
 					}
 					out.WriteString(g.prefix(name, i+1, ':'))
-					out.Write(m)
+					out.WriteString(g.env.Color.BoldRed(string(m)))
 					out.WriteString("\n")
 				}
 				lastPrinted = i
 				g.printedAny = true
 			} else {
 				for j := max(lastPrinted+1, i-cfg.before); j < i; j++ {
-					printLine(j, '-')
+					printLine(j, '-', false)
 				}
-				printLine(i, ':')
+				printLine(i, ':', true)
 				afterLeft = cfg.after
 			}
 		}
@@ -609,23 +637,24 @@ func (g *grepRun) scan(name string, data []byte) {
 	switch {
 	case cfg.listMatch:
 		if selected > 0 {
-			out.WriteString(name + "\n")
+			out.WriteString(g.env.Color.Magenta(name) + "\n")
 		}
 	case cfg.listNon:
 		if selected == 0 {
-			out.WriteString(name + "\n")
+			out.WriteString(g.env.Color.Magenta(name) + "\n")
 		}
 	case cfg.count:
 		if cfg.rg && selected == 0 {
 			break
 		}
 		if g.showName {
-			out.Printf("%s:%d\n", name, selected)
+			out.WriteString(g.env.Color.Magenta(name))
+			out.Printf(":%d\n", selected)
 		} else {
 			out.Printf("%d\n", selected)
 		}
 	case binary && selected > 0 && !cfg.quiet:
-		out.Printf("Binary file %s matches\n", name)
+		out.WriteString("Binary file " + g.env.Color.Magenta(name) + " matches\n")
 	}
 }
 

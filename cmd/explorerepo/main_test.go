@@ -317,6 +317,69 @@ func TestColor(t *testing.T) {
 	}
 }
 
+// TestShellColors: ls/tree, rg/grep and log style their output, and the escapes
+// strip back to exactly the plain text. --no-decorate keeps log's content
+// independent of color so the two runs are comparable.
+func TestShellColors(t *testing.T) {
+	f := testutil.NewFixture(t)
+	for _, script := range []string{
+		"ls a", "ls -l a", "tree a",
+		"rg needle a", "rg --files a",
+		"grep -rn needle a", "grep -rl needle a",
+		"git log --oneline --no-decorate", "git log --no-decorate",
+	} {
+		colored, _, _ := exec(t, "", "--repo", f.Bare, "--color=always", "-c", script)
+		plain, _, _ := exec(t, "", "--repo", f.Bare, "--color=never", "-c", script)
+		if !strings.Contains(colored, "\x1b[") {
+			t.Errorf("%q not colored: %q", script, colored)
+		}
+		if got := color.Strip(colored); got != plain {
+			t.Errorf("%q: stripped %q, want %q", script, got, plain)
+		}
+	}
+	// Output into a pipe stays plain even with --color=always.
+	out, _, _ := exec(t, "", "--repo", f.Bare, "--color=always", "-c", "ls a | wc -l; rg needle a | wc -l")
+	if strings.Contains(out, "\x1b[") {
+		t.Errorf("piped output colored: %q", out)
+	}
+}
+
+// TestLogDecorations: our ref decorations match git's --decorate=short exactly.
+func TestLogDecorations(t *testing.T) {
+	f := testutil.NewFixture(t)
+	want := map[string]string{}
+	for _, ln := range strings.Split(testutil.Git(t, f.Bare, nil, "log", "--decorate=short", "--no-color", "--format=%H%d"), "\n") {
+		oid, dec, _ := strings.Cut(ln, " ")
+		want[oid] = strings.TrimSpace(dec)
+	}
+	out, _, code := exec(t, "", "--repo", f.Bare, "--color=never", "-c", "git log --decorate")
+	if code != 0 {
+		t.Fatalf("git log: %d %q", code, out)
+	}
+	got := map[string]string{}
+	for _, ln := range strings.Split(out, "\n") {
+		rest, ok := strings.CutPrefix(ln, "commit ")
+		if !ok {
+			continue
+		}
+		oid, dec, _ := strings.Cut(rest, " ")
+		got[oid] = strings.TrimSpace(dec)
+	}
+	if len(got) == 0 {
+		t.Fatalf("no commits parsed: %q", out)
+	}
+	for oid, w := range want {
+		if g, ok := got[oid]; ok && g != w {
+			t.Errorf("%s: decorations %q, want %q", oid, g, w)
+		}
+	}
+	// The hash and the decorations are colored for a terminal.
+	out, _, _ = exec(t, "", "--repo", f.Bare, "--color=always", "-c", "git log --oneline --decorate -1")
+	if !strings.Contains(out, "\x1b[33m") || !strings.Contains(out, "\x1b[1;36mHEAD") {
+		t.Errorf("log not colored/decorated: %q", out)
+	}
+}
+
 // run2 is exec without resetting the color environment.
 func run2(t *testing.T, args ...string) (string, string, int) {
 	t.Helper()

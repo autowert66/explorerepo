@@ -166,7 +166,7 @@ func TestErrorsAndLimits(t *testing.T) {
 		{"ls -z", "ls: unsupported option '-z' (supported: -a -l -1 -R -d -F -A)\n", 2, true},
 		{"sed 's/a/b/' README.md", "sed: script \"s/a/b/\" is not supported (only sed -n 'A,Bp', 'Ap', 'A,$p' and 'Nq'; use head, tail or grep for the rest)\n", 2, true},
 		{"find . -size +1k", "find: unsupported predicate '-size' (supported: -name -iname -path -ipath -regex -type f|d|l -maxdepth -mindepth -prune -print -print0 -exec ! -o -a ( ))\n", 2, true},
-		{"git status", "git: only these git subcommands are available: log [-n N] [--oneline], show REV:PATH, ls-tree [-r] [-d] [--name-only] REV [PATH], rev-parse [REV]\n", 2, true},
+		{"git status", "git: only these git subcommands are available: log [-n N] [--oneline] [--decorate], show REV:PATH, ls-tree [-r] [-d] [--name-only] REV [PATH], rev-parse [REV]\n", 2, true},
 		{"grep -r nothing-matches-this a", "", 1, true},
 		{"cat < /etc/passwd", "sh: /etc/passwd: No such file or directory\n", 1, true},
 	}

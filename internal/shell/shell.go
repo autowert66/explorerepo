@@ -34,6 +34,7 @@ type Options struct {
 	Stderr    io.Writer
 	MaxOutput int64 // 0 = unlimited
 	Color     bool  // Stdout is a human's terminal; style what is written straight to it
+	Human     bool  // Stdout is a human's terminal; show human-only content (log decorations)
 }
 
 // limitWriter stops output once the cap is reached and cancels the run.
@@ -98,6 +99,12 @@ func (r *runner) color(w io.Writer) builtins.Styler {
 	return builtins.Styler{On: r.opt.Color && w == r.top}
 }
 
+// human reports whether a command writing to w writes straight to a human's
+// terminal, independent of the --color mode (for log decorations).
+func (r *runner) human(w io.Writer) bool {
+	return r.opt.Human && w == r.top
+}
+
 // exec runs a builtin with the given stdio and returns its status.
 func (r *runner) exec(ctx context.Context, dir string, args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	if handled, status := probe(args, stdout, stderr); handled {
@@ -124,7 +131,8 @@ func (r *runner) exec(ctx context.Context, dir string, args []string, stdin io.R
 	out := builtins.NewOut(stdout)
 	env := &builtins.Env{
 		Stdin: stdin, Stdout: out, Stderr: stderr, Dir: dir,
-		FS: r.opt.FS, Repo: r.opt.Repo, Cfg: r.opt.Cfg, Color: r.color(stdout),
+		FS: r.opt.FS, Repo: r.opt.Repo, Cfg: r.opt.Cfg,
+		Color: r.color(stdout), Human: r.human(stdout),
 		Run: func(ctx context.Context, a []string, in io.Reader, o io.Writer) int {
 			return r.exec(ctx, dir, a, in, o, stderr)
 		},
