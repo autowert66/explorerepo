@@ -96,9 +96,15 @@ func pullCmd(ctx context.Context, env *Env, args []string) int {
 		return ExitFail
 	}
 	force := p.Has("f")
-	if _, err := os.Lstat(absDest); err == nil && !force {
-		env.Errf("pull", "%s already exists (use -f to overwrite)", dest)
-		return ExitFail
+	if st, err := os.Lstat(absDest); err == nil {
+		if st.Mode()&os.ModeSymlink != 0 {
+			env.Errf("pull", "refusing to write through %s (destination is a symlink)", dest)
+			return ExitFail
+		}
+		if !force {
+			env.Errf("pull", "%s already exists (use -f to overwrite)", dest)
+			return ExitFail
+		}
 	}
 
 	// Plan: collect and validate everything before touching the disk.
