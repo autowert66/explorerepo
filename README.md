@@ -8,7 +8,7 @@
 </p>
 
 explorerepo lets an AI agent read or search a remote git repository without cloning it and without
-the GitHub API. Install one Go binary and add a line to your global `AGENTS.md` (or `CLAUDE.md`),
+the GitHub API. Install one Go binary and add a line to your global `AGENTS.md` or `CLAUDE.md`,
 and an agent that needs a single file stops cloning the whole repo. It runs `ls`, `cat`, `head`,
 `tail`, `grep`, and `find` against the remote tree, over SSH or plain HTTPS.
 
