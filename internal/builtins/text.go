@@ -376,10 +376,15 @@ func expandSet(s string) ([]rune, error) {
 	for i := 0; i < len(rs); i++ {
 		c := rs[i]
 		if c == '[' && i+1 < len(rs) && rs[i+1] == ':' {
-			// A class is "[:name:]", so the closing ":]" must sit at least
-			// past the opener. "[:]" and "[:x" are not classes: fall through
-			// and let the bytes be matched literally.
-			end := strings.Index(string(rs[i:]), ":]")
+			// A class is "[:name:]". Scan runes rather than using a byte
+			// offset, so a multibyte name cannot slice past the slice.
+			end := -1
+			for j := i + 2; j+1 < len(rs); j++ {
+				if rs[j] == ':' && rs[j+1] == ']' {
+					end = j - i
+					break
+				}
+			}
 			if end > 2 {
 				name := string(rs[i+2 : i+end])
 				fn, ok := trClasses[name]

@@ -93,6 +93,9 @@ func badComponentFor(c string, windows bool) error {
 		return fmt.Errorf("refusing to write path component %q", c)
 	case windows && windowsReservedName(c):
 		return fmt.Errorf("refusing to write reserved name %q", c)
+	case windows && windowsShortnameDotGit(c):
+		// On volumes with 8.3 names, git~1 can resolve to .git.
+		return fmt.Errorf("refusing to write %q entry", c)
 	case windows && (strings.HasSuffix(c, ".") || strings.HasSuffix(c, " ")):
 		// Windows strips these, so distinct entries can collide.
 		return fmt.Errorf("refusing to write path component %q", c)
@@ -115,6 +118,22 @@ func windowsReservedName(c string) bool {
 		return base[3] >= '1' && base[3] <= '9'
 	}
 	return false
+}
+
+// windowsShortnameDotGit reports an 8.3 short name for .git, such as GIT~1.
+func windowsShortnameDotGit(c string) bool {
+	s := strings.ToLower(c)
+	s = strings.TrimPrefix(s, ".")
+	rest, ok := strings.CutPrefix(s, "git~")
+	if !ok || rest == "" {
+		return false
+	}
+	for i := 0; i < len(rest); i++ {
+		if rest[i] < '0' || rest[i] > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 func caseInsensitiveFS(dir string) bool {
@@ -142,10 +161,17 @@ func insideDest(rel, target string) bool {
 // insideDestFor applies the containment rule for one host family. windows is a
 // parameter so the rules can be tested on any OS.
 func insideDestFor(rel, target string, windows bool) bool {
-	if strings.HasPrefix(target, "/") {
-		return false
+	if windows {
+		if windowsAbsPath(target) {
+			return false
+		}
+		// A backslash is a path separator on Windows, so normalize before
+		// the containment check; otherwise "..\..\out" looks like one
+		// segment and "\Windows" does not look rooted.
+		target = strings.ReplaceAll(target, `\`, "/")
+		rel = strings.ReplaceAll(rel, `\`, "/")
 	}
-	if windows && windowsAbsPath(target) {
+	if strings.HasPrefix(target, "/") {
 		return false
 	}
 	joined := path.Join(path.Dir(rel), target)

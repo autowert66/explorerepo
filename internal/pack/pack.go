@@ -111,7 +111,7 @@ type pendingRef struct {
 
 // Parse reads a packfile from src, calling sink for every resolved object.
 func Parse(src io.Reader, opt Options, sink func(Raw) error) error {
-	if opt.MaxObjectSize == 0 {
+	if opt.MaxObjectSize <= 0 {
 		opt.MaxObjectSize = 1 << 30
 	}
 	r := newReader(src)
@@ -132,14 +132,24 @@ func Parse(src io.Reader, opt Options, sink func(Raw) error) error {
 	byOID := map[object.OID]int64{}
 	pending := map[object.OID][]pendingRef{} // keyed by base oid
 	var zr io.ReadCloser
+
+	// retain accounts for bytes the parser keeps, so a pack cannot exceed the
+	// caller's memory budget through pending deltas as well as emitted objects.
 	var total int64
+	retain := func(n int) error {
+		if opt.MaxTotalBytes <= 0 {
+			return nil
+		}
+		total += int64(n)
+		if total > opt.MaxTotalBytes {
+			return fmt.Errorf("pack: object data exceeds %d-byte limit", opt.MaxTotalBytes)
+		}
+		return nil
+	}
 
 	emit := func(off int64, t object.Type, data []byte) error {
-		if opt.MaxTotalBytes > 0 {
-			total += int64(len(data))
-			if total > opt.MaxTotalBytes {
-				return fmt.Errorf("pack: object data exceeds %d-byte limit", opt.MaxTotalBytes)
-			}
+		if err := retain(len(data)); err != nil {
+			return err
 		}
 		oid := object.Hash(t, data)
 		byOffset[off] = stored{t, data}
@@ -162,6 +172,9 @@ func Parse(src io.Reader, opt Options, sink func(Raw) error) error {
 			for _, p := range waiting {
 				res, err := ApplyDeltaLimited(bs.data, p.delta, uint64(opt.MaxObjectSize))
 				if err != nil {
+					return err
+				}
+				if err := retain(len(res)); err != nil {
 					return err
 				}
 				o := object.Hash(bs.typ, res)
@@ -291,8 +304,14 @@ func Parse(src io.Reader, opt Options, sink func(Raw) error) error {
 					}
 					continue
 				}
+				if err := retain(len(data)); err != nil {
+					return err
+				}
 				pending[baseOID] = append(pending[baseOID], pendingRef{off, data})
 			} else {
+				if err := retain(len(data)); err != nil {
+					return err
+				}
 				pending[baseOID] = append(pending[baseOID], pendingRef{off, data})
 			}
 		}
@@ -311,6 +330,9 @@ func Parse(src io.Reader, opt Options, sink func(Raw) error) error {
 			res, err := ApplyDeltaLimited(bd, p.delta, uint64(opt.MaxObjectSize))
 			if err != nil {
 				return fmt.Errorf("pack: %w", err)
+			}
+			if err := retain(len(res)); err != nil {
+				return err
 			}
 			if err := sink(Raw{object.Hash(t, res), t, res}); err != nil {
 				return err

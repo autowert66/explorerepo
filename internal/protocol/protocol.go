@@ -128,12 +128,12 @@ func (c *Client) readCaps(ctx context.Context) error {
 		if k == pktline.Flush {
 			break
 		}
-		if k != pktline.Data {
-			continue
-		}
 		total += len(p) + 4
 		if total > maxAdvertisementBytes {
 			return fmt.Errorf("server sent an oversized capability advertisement (over %d bytes)", maxAdvertisementBytes)
+		}
+		if k != pktline.Data {
+			continue
 		}
 		key, val, _ := strings.Cut(strings.TrimRight(string(p), "\n"), "=")
 		c.Caps.Raw[key] = val
@@ -213,12 +213,12 @@ func (c *Client) LsRefs(ctx context.Context, prefixes []string) ([]Ref, error) {
 		if k == pktline.Flush {
 			return refs, nil
 		}
-		if k != pktline.Data {
-			continue
-		}
 		total += len(p) + 4
 		if total > maxListBytes {
 			return nil, fmt.Errorf("server sent an oversized ref listing (over %d bytes)", maxListBytes)
+		}
+		if k != pktline.Data {
+			continue
 		}
 		line := strings.TrimRight(string(p), "\n")
 		if strings.HasPrefix(line, "ERR ") {
@@ -327,6 +327,10 @@ func (c *Client) Fetch(ctx context.Context, req FetchReq, sink func(pack.Raw) er
 			break
 		}
 		if k == pktline.Delim {
+			ctrlBytes += 4
+			if ctrlBytes > maxAdvertisementBytes {
+				return fail(errors.New("server sent an oversized fetch control section"))
+			}
 			continue
 		}
 		if section == "packfile" {
@@ -413,12 +417,12 @@ func (c *Client) ObjectInfo(ctx context.Context, oids []object.OID) (map[object.
 		if k == pktline.Flush {
 			return out, nil
 		}
-		if k != pktline.Data {
-			continue
-		}
 		total += len(p) + 4
 		if total > maxListBytes {
 			return nil, fmt.Errorf("server sent an oversized object-info response (over %d bytes)", maxListBytes)
+		}
+		if k != pktline.Data {
+			continue
 		}
 		f := strings.Fields(string(p))
 		if len(f) == 2 {
