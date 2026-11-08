@@ -36,9 +36,16 @@ func env() []string {
 // Git runs the git CLI in dir and returns trimmed stdout.
 func Git(t testing.TB, dir string, stdin []byte, args ...string) string {
 	t.Helper()
+	return GitEnv(t, dir, stdin, nil, args...)
+}
+
+// GitEnv is Git with extra environment entries, for tests that need a
+// different commit date or author.
+func GitEnv(t testing.TB, dir string, stdin []byte, extraEnv []string, args ...string) string {
+	t.Helper()
 	cmd := exec.Command("git", args...)
 	cmd.Dir = dir
-	cmd.Env = env()
+	cmd.Env = append(env(), extraEnv...)
 	if stdin != nil {
 		cmd.Stdin = bytes.NewReader(stdin)
 	}

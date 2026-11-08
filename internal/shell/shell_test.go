@@ -80,6 +80,8 @@ func TestBasicScripts(t *testing.T) {
 		{"cat link-to-readme | head -1", "# Hello\n", 0},
 		{"cat a/link-up | head -1", "# Hello\n", 0},
 		{"cat a/link-dir/c.txt", "charlie\n", 0},
+		{"cat a/link-dir/../c/c.txt", "charlie\n", 0},
+		{"cd a/link-dir && cd .. && pwd", "/a/b\n", 0},
 		{"head -n 1 README.md a/a.txt", "==> README.md <==\n# Hello\n\n==> a/a.txt <==\nalpha v2\n", 0},
 		{"tail -n 1 README.md", "third line\n", 0},
 		{"tail -n +2 README.md", "second line\nthird line\n", 0},
@@ -139,6 +141,14 @@ func TestBasicScripts(t *testing.T) {
 		r := run(t, f, c.script)
 		expect(t, c.script, r, c.out, c.status)
 	}
+}
+
+func TestGitLsTreeOrder(t *testing.T) {
+	bare := testutil.NewOrdering(t)
+	r := runAt(t, bare, "", "HEAD", "git ls-tree --name-only HEAD")
+	expect(t, "git ls-tree order", r, "a.txt\na\nfoo-bar.txt\nfoo.bar\nfoo.txt\nfoo\n", 0)
+	r = runAt(t, bare, "", "HEAD", "git ls-tree -r --name-only HEAD")
+	expect(t, "git ls-tree -r order", r, "a.txt\na/inside.txt\nfoo-bar.txt\nfoo.bar/inside.txt\nfoo.txt\nfoo/inside.txt\n", 0)
 }
 
 func TestErrorsAndLimits(t *testing.T) {

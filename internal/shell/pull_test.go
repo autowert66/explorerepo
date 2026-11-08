@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -115,6 +116,79 @@ func TestPullDefaultDestAndOverwrite(t *testing.T) {
 	}
 	if b, _ := os.ReadFile(filepath.Join(tmp, "c", "c.txt")); string(b) != "charlie\n" {
 		t.Errorf("not overwritten: %q", b)
+	}
+}
+
+func TestPullDestinationSymlink(t *testing.T) {
+	f := testutil.NewFixture(t)
+	tmp := t.TempDir()
+	outside := filepath.Join(tmp, "outside.txt")
+	if err := os.WriteFile(outside, []byte("ORIGINAL\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	dest := filepath.Join(tmp, "dest")
+	if err := os.Symlink(outside, dest); err != nil {
+		t.Skip(err)
+	}
+	r := runAt(t, f.Bare, "", "HEAD", "pull -f README.md "+filepath.ToSlash(dest))
+	if r.status == 0 {
+		t.Fatalf("pull wrote through a destination symlink: %q", r.out)
+	}
+	if b, _ := os.ReadFile(outside); string(b) != "ORIGINAL\n" {
+		t.Fatalf("symlink target overwritten: %q", b)
+	}
+}
+
+func TestPullUnicodeNormalizationCollision(t *testing.T) {
+	bare := testutil.NewUnicodeCollision(t)
+	probe := t.TempDir()
+	if err := os.WriteFile(filepath.Join(probe, "é"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Lstat(filepath.Join(probe, "e\u0301")); err != nil {
+		t.Skip("filesystem distinguishes NFC and NFD names")
+	}
+	dest := filepath.Join(t.TempDir(), "u")
+	r := runAt(t, bare, "", "HEAD", "pull / "+filepath.ToSlash(dest))
+	if r.status == 0 {
+		t.Fatalf("pull silently collapsed normalization-equivalent names: %q", r.out)
+	}
+}
+
+func TestPullBackslashName(t *testing.T) {
+	bare := testutil.NewBackslash(t)
+	dest := filepath.Join(t.TempDir(), "b")
+	r := runAt(t, bare, "", "HEAD", "pull / "+filepath.ToSlash(dest))
+	if runtime.GOOS == "windows" {
+		if r.status == 0 {
+			t.Fatalf("pull created a backslash name on Windows: %q", r.out)
+		}
+		return
+	}
+	if r.status != 0 {
+		t.Fatalf("status %d err %q", r.status, r.err)
+	}
+	if b, err := os.ReadFile(filepath.Join(dest, `back\slash.txt`)); err != nil || string(b) != "backslash\n" {
+		t.Fatalf("backslash file: %q %v", b, err)
+	}
+}
+
+func TestPullDirectSubmodule(t *testing.T) {
+	f := testutil.NewFixture(t)
+	dest := filepath.Join(t.TempDir(), "sub")
+	r := runAt(t, f.Bare, "", "HEAD", "pull sub "+filepath.ToSlash(dest))
+	if r.status != 0 {
+		t.Fatalf("status %d err %q", r.status, r.err)
+	}
+	st, err := os.Stat(dest)
+	if err != nil || !st.IsDir() {
+		t.Fatalf("submodule destination: %v %v", st, err)
+	}
+	if ents, _ := os.ReadDir(dest); len(ents) != 0 {
+		t.Fatalf("submodule destination is not empty: %v", ents)
+	}
+	if !strings.Contains(r.err, "skipping submodule") {
+		t.Errorf("missing submodule warning: %q", r.err)
 	}
 }
 
