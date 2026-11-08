@@ -340,6 +340,19 @@ func (e *Env) lsTreeLine(n *vfs.Node, path string, nameOnly bool) {
 	e.Stdout.Printf("%06o %s %s\t%s\n", n.Mode, gitTypeName(n), n.OID, path)
 }
 
+// gitTreeKey is git's tree ordering: a directory sorts as if its name ended
+// in "/", so "a.txt" comes before the directory "a".
+func gitTreeKey(n *vfs.Node) string {
+	if n.IsDir() {
+		return n.Name + "/"
+	}
+	return n.Name
+}
+
+func sortGitTree(nodes []*vfs.Node) {
+	sort.SliceStable(nodes, func(i, j int) bool { return gitTreeKey(nodes[i]) < gitTreeKey(nodes[j]) })
+}
+
 func (e *Env) lsTree(ctx context.Context, fsys *vfs.FS, root *vfs.Node, prefix, _ string, recursive, dirsOnly, nameOnly bool) int {
 	if recursive {
 		if err := e.Prefetch(ctx, root, -1); err != nil {
@@ -353,6 +366,7 @@ func (e *Env) lsTree(ctx context.Context, fsys *vfs.FS, root *vfs.Node, prefix, 
 		if err != nil {
 			return err
 		}
+		sortGitTree(kids)
 		for _, k := range kids {
 			p := k.Name
 			if pre != "" {
