@@ -157,6 +157,28 @@ func TestPullRefusesSymlinkedParent(t *testing.T) {
 	}
 }
 
+func TestPullRefusesDeepSymlinkedAncestor(t *testing.T) {
+	f := testutil.NewFixture(t)
+	tmp := t.TempDir()
+	outside := t.TempDir()
+	real := filepath.Join(outside, "realdir")
+	if err := os.MkdirAll(real, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(tmp, "link")
+	if err := os.Symlink(outside, link); err != nil {
+		t.Skip(err)
+	}
+	dest := filepath.Join(link, "realdir", "new")
+	r := runAt(t, f.Bare, "", "HEAD", "pull a/b "+filepath.ToSlash(dest))
+	if r.status == 0 {
+		t.Fatalf("pull wrote through a symlinked ancestor: %q", r.out)
+	}
+	if ents, _ := os.ReadDir(real); len(ents) != 0 {
+		t.Fatalf("wrote through a symlinked ancestor: %v", ents)
+	}
+}
+
 func TestPullUnicodeNormalizationCollision(t *testing.T) {
 	bare := testutil.NewUnicodeCollision(t)
 	probe := t.TempDir()
@@ -207,6 +229,22 @@ func TestPullDirectSubmodule(t *testing.T) {
 	}
 	if !strings.Contains(r.err, "skipping submodule") {
 		t.Errorf("missing submodule warning: %q", r.err)
+	}
+}
+
+func TestPullForceOverwritesExistingTree(t *testing.T) {
+	f := testutil.NewFixture(t)
+	dest := filepath.Join(t.TempDir(), "b")
+	if r := runAt(t, f.Bare, "", "HEAD", "pull a/b "+filepath.ToSlash(dest)); r.status != 0 {
+		t.Fatalf("first pull: %d %s", r.status, r.err)
+	}
+	r := runAt(t, f.Bare, "", "HEAD", "pull -f a/b "+filepath.ToSlash(dest))
+	if r.status != 0 {
+		t.Fatalf("second pull: %d %s", r.status, r.err)
+	}
+	b, err := os.ReadFile(filepath.Join(dest, "c", "d", "needle.txt"))
+	if err != nil || !strings.Contains(string(b), "needle") {
+		t.Fatalf("needle after overwrite: %q %v", b, err)
 	}
 }
 

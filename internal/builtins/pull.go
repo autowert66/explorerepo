@@ -32,12 +32,15 @@ type pulledFile struct {
 	info os.FileInfo
 }
 
-func collision(seen []pulledFile, rel, target string) error {
+// Filesystem name folds only happen between siblings, so comparing within one
+// directory is sufficient and avoids scanning the whole pull for every entry.
+func collision(seen map[string][]pulledFile, rel, target string) error {
 	st, err := os.Lstat(target)
 	if err != nil {
 		return nil
 	}
-	for _, s := range seen {
+	dir := filepath.Dir(target)
+	for _, s := range seen[dir] {
 		if s.rel == rel || os.SameFile(st, s.info) {
 			return fmt.Errorf("%q and %q name the same file on this filesystem", s.rel, rel)
 		}
@@ -45,9 +48,10 @@ func collision(seen []pulledFile, rel, target string) error {
 	return nil
 }
 
-func remember(seen *[]pulledFile, rel, target string) {
+func remember(seen map[string][]pulledFile, rel, target string) {
 	if st, err := os.Lstat(target); err == nil {
-		*seen = append(*seen, pulledFile{rel: rel, info: st})
+		dir := filepath.Dir(target)
+		seen[dir] = append(seen[dir], pulledFile{rel: rel, info: st})
 	}
 }
 
@@ -196,7 +200,7 @@ func pullCmd(ctx context.Context, env *Env, args []string) int {
 		}
 	}
 	var files, total int64
-	var seen []pulledFile
+	seen := map[string][]pulledFile{}
 	status := ExitOK
 	const chunk = 1000
 	for start := 0; start < len(items); start += chunk {
@@ -278,35 +282,48 @@ func pullCmd(ctx context.Context, env *Env, args []string) int {
 				files++
 				total += int64(len(data))
 			}
-			remember(&seen, it.rel, target)
+			remember(seen, it.rel, target)
 		}
 	}
 	env.Stdout.Printf("pulled %d files (%.1f MiB) to %s\n", files, float64(total)/(1<<20), dest)
 	return status
 }
 
-// checkDestAncestors refuses a missing destination whose nearest existing
-// parent is a symlink or a non-directory. Without this, MkdirAll would follow
-// that parent and create the destination outside the requested path.
+// checkDestAncestors refuses a destination below a symlink or a non-directory.
+// It walks every component from the volume root, so an existing directory
+// deeper in the path cannot hide a symlinked ancestor. The first component
+// under the root is exempt because `/var`, `/tmp`, `/bin` and similar system
+// aliases are symlinks on normal systems.
 func checkDestAncestors(target string) error {
 	dir := filepath.Dir(target)
-	for {
-		st, err := os.Lstat(dir)
-		if err == nil {
-			if st.Mode()&os.ModeSymlink != 0 || !st.IsDir() {
-				return fmt.Errorf("refusing to write through %s (not a plain directory)", dir)
-			}
+	vol := filepath.VolumeName(dir)
+	root := vol + string(filepath.Separator)
+	rel, err := filepath.Rel(root, dir)
+	if err != nil || rel == "." {
+		return nil
+	}
+	cur := root
+	parts := strings.Split(filepath.ToSlash(rel), "/")
+	for i, part := range parts {
+		if part == "" || part == "." {
+			continue
+		}
+		cur = filepath.Join(cur, filepath.FromSlash(part))
+		st, err := os.Lstat(cur)
+		if os.IsNotExist(err) {
 			return nil
 		}
-		if !os.IsNotExist(err) {
+		if err != nil {
 			return err
 		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			return nil
+		if st.Mode()&os.ModeSymlink != 0 || !st.IsDir() {
+			if i == 0 && st.Mode()&os.ModeSymlink != 0 {
+				continue
+			}
+			return fmt.Errorf("refusing to write through %s (not a plain directory)", cur)
 		}
-		dir = parent
 	}
+	return nil
 }
 
 // checkParent refuses to write through a symlink or non-directory on the way to target.
