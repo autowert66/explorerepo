@@ -20,6 +20,34 @@ func TestDeltaCopySizeZero(t *testing.T) {
 	}
 }
 
+// A delta may not claim (or grow to) more than the caller's limit, even if
+// its instruction stream is small.
+func TestDeltaRejectsOversizedResult(t *testing.T) {
+	base := bytes.Repeat([]byte("x"), 4096)
+	// base size 4096, result size 4096, then one copy of all 4096 bytes.
+	delta := []byte{0x80, 0x20, 0x80, 0x20, 0xb0, 0x00, 0x10}
+	if out, err := ApplyDelta(base, delta); err != nil || len(out) != 4096 {
+		t.Fatalf("unlimited apply: err=%v len=%d", err, len(out))
+	}
+	if _, err := ApplyDeltaLimited(base, delta, 1024); err == nil {
+		t.Fatal("expected an error for a result larger than the limit")
+	}
+}
+
+// A delta that copies repeatedly must stop as soon as it passes the declared
+// result size instead of growing first and checking at the end.
+func TestDeltaStopsAtDeclaredSize(t *testing.T) {
+	base := bytes.Repeat([]byte("x"), 0x10000)
+	// base size 0x10000, result size 1, then many 64 KiB copy ops.
+	delta := []byte{0x80, 0x80, 0x04, 0x01}
+	for i := 0; i < 1000; i++ {
+		delta = append(delta, 0x80)
+	}
+	if _, err := ApplyDelta(base, delta); err == nil {
+		t.Fatal("expected an error once the result exceeds the declared size")
+	}
+}
+
 func TestDeltaErrors(t *testing.T) {
 	if _, err := ApplyDelta([]byte("abc"), []byte{3, 3, 0}); err == nil {
 		t.Error("opcode 0 should fail")
@@ -93,6 +121,16 @@ func TestParseRefDelta(t *testing.T) {
 	f := testutil.NewFixture(t)
 	data := packObjects(t, f) // no --delta-base-offset => REF_DELTA
 	checkPack(t, f, data)
+}
+
+// MaxTotalBytes bounds the memory a pack can make the parser retain.
+func TestParseTotalBudget(t *testing.T) {
+	f := testutil.NewFixture(t)
+	data := packObjects(t, f, "--delta-base-offset")
+	if err := Parse(bytes.NewReader(data), Options{MaxTotalBytes: 1},
+		func(Raw) error { return nil }); err == nil {
+		t.Fatal("expected the total-data budget to reject the pack")
+	}
 }
 
 func TestChecksumMismatch(t *testing.T) {
