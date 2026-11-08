@@ -6,6 +6,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/autowert66/explorerepo/internal/object"
@@ -21,13 +22,65 @@ type pullItem struct {
 	node *vfs.Node
 }
 
+// pulledFile remembers a path this pull created, so a later name that the
+// filesystem resolves to the same file can be reported instead of silently
+// overwriting it. This catches case folds and Unicode normalization folds
+// (APFS/HFS+ compare NFC and NFD names as equal) without a normalization
+// dependency.
+type pulledFile struct {
+	rel  string
+	info os.FileInfo
+}
+
+// Filesystem name folds only happen between siblings, so comparing within one
+// directory is sufficient and avoids scanning the whole pull for every entry.
+func collision(seen map[string][]pulledFile, rel, target string) error {
+	st, err := os.Lstat(target)
+	if err != nil {
+		return nil
+	}
+	dir := filepath.Dir(target)
+	for _, s := range seen[dir] {
+		if s.rel == rel || os.SameFile(st, s.info) {
+			return fmt.Errorf("%q and %q name the same file on this filesystem", s.rel, rel)
+		}
+	}
+	return nil
+}
+
+func remember(seen map[string][]pulledFile, rel, target string) {
+	if st, err := os.Lstat(target); err == nil {
+		dir := filepath.Dir(target)
+		seen[dir] = append(seen[dir], pulledFile{rel: rel, info: st})
+	}
+}
+
+// removeStaleSymlink unlinks a symlink already at target before writing the
+// entry. os.WriteFile follows such a link, so with -f a stale link (left by the
+// user or an earlier pull of a different tree) would send the write outside
+// DEST.
+func removeStaleSymlink(target string) error {
+	st, err := os.Lstat(target)
+	if err != nil || st.Mode()&os.ModeSymlink == 0 {
+		return nil
+	}
+	if err := os.Remove(target); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return nil
+}
+
 func badComponent(c string) error {
 	switch {
 	case c == "" || c == "." || c == "..":
 		return fmt.Errorf("refusing to write path component %q", c)
 	case strings.EqualFold(c, ".git"):
 		return fmt.Errorf("refusing to write %q entry", c)
-	case strings.ContainsAny(c, "/\\\x00"):
+	case strings.ContainsAny(c, "/\x00"):
+		return fmt.Errorf("refusing to write path component %q", c)
+	case runtime.GOOS == "windows" && strings.ContainsRune(c, '\\'):
+		// A backslash is a legal POSIX filename byte but a path separator on
+		// Windows, where writing it would escape the destination.
 		return fmt.Errorf("refusing to write path component %q", c)
 	}
 	return nil
@@ -73,10 +126,6 @@ func pullCmd(ctx context.Context, env *Env, args []string) int {
 		env.PathErr("pull", src, err)
 		return ExitFail
 	}
-	if n.IsGitlink() {
-		env.PathErr("pull", src, &vfs.SubmoduleError{Commit: n.OID})
-		return ExitFail
-	}
 	dest := ""
 	if len(p.Args) == 2 {
 		dest = p.Args[1]
@@ -96,9 +145,15 @@ func pullCmd(ctx context.Context, env *Env, args []string) int {
 		return ExitFail
 	}
 	force := p.Has("f")
-	if _, err := os.Lstat(absDest); err == nil && !force {
-		env.Errf("pull", "%s already exists (use -f to overwrite)", dest)
-		return ExitFail
+	if st, err := os.Lstat(absDest); err == nil {
+		if st.Mode()&os.ModeSymlink != 0 {
+			env.Errf("pull", "refusing to write through %s (destination is a symlink)", dest)
+			return ExitFail
+		}
+		if !force {
+			env.Errf("pull", "%s already exists (use -f to overwrite)", dest)
+			return ExitFail
+		}
 	}
 
 	// Plan: collect and validate everything before touching the disk.
@@ -132,6 +187,10 @@ func pullCmd(ctx context.Context, env *Env, args []string) int {
 		items = []pullItem{{"", n}}
 	}
 
+	if err := checkDestAncestors(absDest); err != nil {
+		env.Errf("pull", "%v", err)
+		return ExitFail
+	}
 	parent := filepath.Dir(absDest)
 	if err := os.MkdirAll(parent, 0o755); err != nil {
 		env.Errf("pull", "%v", err)
@@ -156,6 +215,7 @@ func pullCmd(ctx context.Context, env *Env, args []string) int {
 		}
 	}
 	var files, total int64
+	seen := map[string][]pulledFile{}
 	status := ExitOK
 	const chunk = 1000
 	for start := 0; start < len(items); start += chunk {
@@ -179,6 +239,10 @@ func pullCmd(ctx context.Context, env *Env, args []string) int {
 				target = filepath.Join(absDest, filepath.FromSlash(it.rel))
 			}
 			if err := checkParent(absDest, target, n.IsDir()); err != nil {
+				env.Errf("pull", "%v", err)
+				return ExitFail
+			}
+			if err := collision(seen, it.rel, target); err != nil {
 				env.Errf("pull", "%v", err)
 				return ExitFail
 			}
@@ -209,6 +273,10 @@ func pullCmd(ctx context.Context, env *Env, args []string) int {
 					}
 				} else {
 					fmt.Fprintf(env.Stderr, "pull: warning: symlink %s -> %s points outside the destination; wrote a regular file containing the target\n", it.rel, ts)
+					if err := removeStaleSymlink(target); err != nil {
+						env.Errf("pull", "%v", err)
+						return ExitFail
+					}
 					if err := os.WriteFile(target, tb, 0o644); err != nil {
 						env.Errf("pull", "%v", err)
 						return ExitFail
@@ -225,6 +293,10 @@ func pullCmd(ctx context.Context, env *Env, args []string) int {
 				if it.node.IsExec() {
 					mode = 0o755
 				}
+				if err := removeStaleSymlink(target); err != nil {
+					env.Errf("pull", "%v", err)
+					return ExitFail
+				}
 				if err := os.WriteFile(target, data, mode); err != nil {
 					env.Errf("pull", "%v", err)
 					return ExitFail
@@ -233,10 +305,48 @@ func pullCmd(ctx context.Context, env *Env, args []string) int {
 				files++
 				total += int64(len(data))
 			}
+			remember(seen, it.rel, target)
 		}
 	}
 	env.Stdout.Printf("pulled %d files (%.1f MiB) to %s\n", files, float64(total)/(1<<20), dest)
 	return status
+}
+
+// checkDestAncestors refuses a destination below a symlink or a non-directory.
+// It walks every component from the volume root, so an existing directory
+// deeper in the path cannot hide a symlinked ancestor. The first component
+// under the root is exempt because `/var`, `/tmp`, `/bin` and similar system
+// aliases are symlinks on normal systems.
+func checkDestAncestors(target string) error {
+	dir := filepath.Dir(target)
+	vol := filepath.VolumeName(dir)
+	root := vol + string(filepath.Separator)
+	rel, err := filepath.Rel(root, dir)
+	if err != nil || rel == "." {
+		return nil
+	}
+	cur := root
+	parts := strings.Split(filepath.ToSlash(rel), "/")
+	for i, part := range parts {
+		if part == "" || part == "." {
+			continue
+		}
+		cur = filepath.Join(cur, filepath.FromSlash(part))
+		st, err := os.Lstat(cur)
+		if os.IsNotExist(err) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		if st.Mode()&os.ModeSymlink != 0 || !st.IsDir() {
+			if i == 0 && st.Mode()&os.ModeSymlink != 0 {
+				continue
+			}
+			return fmt.Errorf("refusing to write through %s (not a plain directory)", cur)
+		}
+	}
+	return nil
 }
 
 // checkParent refuses to write through a symlink or non-directory on the way to target.

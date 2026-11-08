@@ -99,7 +99,8 @@ Access
 
 --rev REV
   A branch, tag (annotated tags are peeled), refs/... name, or full 40-hex commit OID; the
-  default is the remote HEAD. Abbreviated OIDs are rejected. 'refs' lists what exists.
+  default is the remote HEAD. A tag wins over a branch with the same name, like git.
+  Abbreviated OIDs are rejected. 'refs' lists what exists.
 `
 
 const helpFlags = `Options come before the command or -c script.
@@ -151,7 +152,11 @@ var helpDetail = map[string]string{
   Copy a file or directory of the repository to the REAL disk (the only command that writes).
   DEST defaults to ./<basename of PATH>, relative to the real working directory
   (not the virtual 'cd'). Refuses to overwrite without -f, to write .git entries, or to
-  follow symlinks that leave DEST. Use it, then run real tools (rg, cargo, ...) on the copy.
+  follow symlinks that leave DEST. It also refuses a DEST that is a symlink or that sits under
+  one (pass the physical path instead), and never writes through a symlink already inside DEST.
+  Names the filesystem resolves to an earlier entry (case or Unicode folds) are reported rather
+  than silently overwritten; a submodule becomes an empty directory. Use it, then run real
+  tools (rg, cargo, ...) on the copy.
 `,
 	"which": `which [-a] [-s] NAME...
   Print NAME for each command the shell provides. Every command here is a builtin, so there
@@ -185,7 +190,7 @@ SEARCH    grep [-rRnivwxlLcohHFEGPIaqs] [-m N] [-A|-B|-C N] [-e PAT]... PATTERN 
 TEXT      sort [-r -n -u -f -s -h] [-k N[,M]] [-t C]   uniq [-c -d -u -i]   cut -d C -f LIST | -c LIST [-s]
           tr [-d -s -c] SET1 [SET2]   xargs [-n N | -I R] [-0] [-r] CMD...   basename dirname tee
 REPO      refs [PREFIX]                list branches/tags (HEAD, refs/heads/, refs/tags/ by default)
-          log [-n N] [--oneline] [--decorate] [REV]  history of the revision (no path filter)
+          log [-n N] [--oneline] [--decorate|--no-decorate] [REV]  history of the revision (no path filter)
           git log | git show REV:PATH | git ls-tree [-r -d --name-only] REV [PATH] | git rev-parse [REV]
           pull [-f] PATH [DEST]        copy a file/dir to the real disk (see 'help pull')
 SHELL     pipes, && || ; $(...), for/while/if, globs (src/*.go), redirect to /dev/null, cd, pwd, echo,
@@ -194,8 +199,9 @@ SHELL     pipes, && || ; $(...), for/while/if, globs (src/*.go), redirect to /de
 PROBE     type NAME... | command -v NAME... | which NAME...   report the commands above as available
           (type -p/-P, type -t, type -a, command -V, which -a also work). They print the bare name,
           since these are builtins with no path. CMD --version and CMD --help print a stub.
-Notes     Symlinks pointing outside the repo error out; submodules are empty dirs ('not fetched');
-          LFS files show as pointer text. 'ls -l' sizes are '?' when not yet downloaded.
+Notes     Symlinks pointing outside the repo error out; cd resolves symlinks, so pwd and '..' use
+          the target path; submodules are empty dirs ('not fetched'); LFS files show as pointer
+          text. 'ls -l' sizes are '?' when not yet downloaded.
           At a terminal, ls/tree, rg/grep and the log hash are colored and log shows refs (see 'help log').
 More      help flags (command-line options)   help repos (hosts, URL forms, private repos)
           help agents (line for AGENTS.md)     help about (version, source, cache, exit codes)

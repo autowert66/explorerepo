@@ -3,6 +3,7 @@
 package repo
 
 import (
+	"container/heap"
 	"context"
 	"errors"
 	"fmt"
@@ -208,7 +209,8 @@ func lookup(m map[string]protocol.Ref, rev string) (protocol.Ref, bool) {
 	case strings.HasPrefix(rev, "refs/"):
 		cands = []string{rev}
 	default:
-		cands = []string{"refs/heads/" + rev, "refs/tags/" + rev}
+		// Match git rev-parse: a tag wins over a branch with the same name.
+		cands = []string{"refs/tags/" + rev, "refs/heads/" + rev}
 	}
 	for _, c := range cands {
 		if ref, ok := m[c]; ok {
@@ -247,6 +249,12 @@ func (r *Repo) ResolveRev(ctx context.Context, rev string) (object.OID, error) {
 		}
 	}
 	if !ok {
+		if rev == "" || rev == "HEAD" {
+			if len(m) == 0 {
+				return object.OID{}, errors.New("repository has no commits (HEAD is unborn)")
+			}
+			return object.OID{}, errors.New("HEAD is unborn or missing; use --rev with a branch, tag or commit")
+		}
 		if object.IsHex(rev) && len(rev) >= 4 {
 			return object.OID{}, fmt.Errorf("cannot resolve abbreviated object id %q: use a full 40-character OID or a ref name", rev)
 		}
@@ -272,9 +280,14 @@ func (r *Repo) Open(ctx context.Context, rev string) error {
 	return nil
 }
 
+// maxTagDepth bounds a tag->tag chain. Content addressing makes a real cycle
+// impossible, but a hostile server can still make us do work in a loop.
+const maxTagDepth = 100
+
 // peel follows annotated tags until a commit is reached.
 func (r *Repo) peel(ctx context.Context, oid object.OID) (object.OID, *object.CommitInfo, error) {
-	for i := 0; i < 10; i++ {
+	// One extra iteration reads the commit after maxTagDepth tag objects.
+	for i := 0; i <= maxTagDepth; i++ {
 		t, data, err := r.object(ctx, oid, "tree:0", 1)
 		if err != nil {
 			return oid, nil, err
@@ -587,33 +600,75 @@ func (r *Repo) Sizes(ctx context.Context, oids []object.OID) map[object.OID]int6
 	return out
 }
 
-// Log fetches up to n commits ending at oid (no trees or blobs).
+// logItem carries the frontier insertion order so equal timestamps are popped
+// first-in-first-out, as git's commit_list_insert_by_date does.
+type logItem struct {
+	entry LogEntry
+	order int
+}
+
+type logHeap []logItem
+
+func (h logHeap) Len() int { return len(h) }
+func (h logHeap) Less(i, j int) bool {
+	a, b := h[i], h[j]
+	if !a.entry.Commit.Time.Equal(b.entry.Commit.Time) {
+		return a.entry.Commit.Time.After(b.entry.Commit.Time)
+	}
+	return a.order < b.order
+}
+func (h logHeap) Swap(i, j int) { h[i], h[j] = h[j], h[i] }
+func (h *logHeap) Push(x any)   { *h = append(*h, x.(logItem)) }
+func (h *logHeap) Pop() any {
+	old := *h
+	n := len(old)
+	x := old[n-1]
+	*h = old[:n-1]
+	return x
+}
+
+// Log fetches up to n commits ending at oid (no trees or blobs). The frontier
+// is ordered by committer time, with insertion order breaking ties. That is
+// git's default log order: the tip is always first, and clock skew cannot put a
+// parent ahead of the child that introduced it, while independent branches
+// interleave newest first.
 func (r *Repo) Log(ctx context.Context, oid object.OID, n int) ([]LogEntry, error) {
 	if err := r.fetch(ctx, []object.OID{oid}, "tree:0", n); err != nil {
 		return nil, err
 	}
-	var out []LogEntry
-	seen := map[object.OID]bool{}
-	queue := []object.OID{oid}
-	for len(queue) > 0 && len(out) < n {
-		cur := queue[0]
-		queue = queue[1:]
-		if seen[cur] {
-			continue
-		}
-		seen[cur] = true
-		t, data, ok := r.store.Get(cur)
-		if !ok || t != object.Commit {
-			continue
-		}
-		ci, err := object.ParseCommit(data)
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, LogEntry{OID: cur, Commit: ci})
-		queue = append(queue, ci.Parents...)
+	seen := map[object.OID]bool{oid: true}
+	t, data, ok := r.store.Get(oid)
+	if !ok || t != object.Commit {
+		return nil, nil
 	}
-	sort.SliceStable(out, func(i, j int) bool { return out[i].Commit.Time.After(out[j].Commit.Time) })
+	ci, err := object.ParseCommit(data)
+	if err != nil {
+		return nil, err
+	}
+	h := &logHeap{{entry: LogEntry{OID: oid, Commit: ci}}}
+	heap.Init(h)
+	seq := 0
+	out := make([]LogEntry, 0, n)
+	for h.Len() > 0 && len(out) < n {
+		e := heap.Pop(h).(logItem).entry
+		out = append(out, e)
+		for _, p := range e.Commit.Parents {
+			if seen[p] {
+				continue
+			}
+			seen[p] = true
+			t, data, ok := r.store.Get(p)
+			if !ok || t != object.Commit {
+				continue
+			}
+			pci, err := object.ParseCommit(data)
+			if err != nil {
+				return nil, err
+			}
+			seq++
+			heap.Push(h, logItem{entry: LogEntry{OID: p, Commit: pci}, order: seq})
+		}
+	}
 	return out, nil
 }
 

@@ -95,13 +95,19 @@ func logCmd(ctx context.Context, env *Env, args []string) int {
 		return ExitFail
 	}
 	// Ref decorations follow git's log.decorate=auto: shown at a human
-	// terminal, off for pipes and agents. --decorate / --no-decorate force it.
+	// terminal, off for pipes and agents. --decorate / --no-decorate force it;
+	// like git, the last one on the command line wins.
 	decorate := env.Human
-	if p.Has("decorate") {
-		decorate = true
-	}
-	if p.Has("no-decorate") {
-		decorate = false
+	for _, a := range args {
+		if a == "--" {
+			break
+		}
+		switch a {
+		case "--decorate":
+			decorate = true
+		case "--no-decorate":
+			decorate = false
+		}
 	}
 	var dec map[object.OID][]deco
 	head := ""
@@ -233,7 +239,7 @@ func (e *Env) decorate(ds []deco, head string) string {
 	return b.String()
 }
 
-const gitUsage = "only these git subcommands are available: log [-n N] [--oneline] [--decorate], show REV:PATH, ls-tree [-r] [-d] [--name-only] REV [PATH], rev-parse [REV]"
+const gitUsage = "only these git subcommands are available: log [-n N] [--oneline] [--decorate|--no-decorate], show REV:PATH, ls-tree [-r] [-d] [--name-only] REV [PATH], rev-parse [REV]"
 
 func gitCmd(ctx context.Context, env *Env, args []string) int {
 	if len(args) == 0 {
@@ -340,6 +346,19 @@ func (e *Env) lsTreeLine(n *vfs.Node, path string, nameOnly bool) {
 	e.Stdout.Printf("%06o %s %s\t%s\n", n.Mode, gitTypeName(n), n.OID, path)
 }
 
+// gitTreeKey is git's tree ordering: a directory sorts as if its name ended
+// in "/", so "a.txt" comes before the directory "a".
+func gitTreeKey(n *vfs.Node) string {
+	if n.IsDir() {
+		return n.Name + "/"
+	}
+	return n.Name
+}
+
+func sortGitTree(nodes []*vfs.Node) {
+	sort.SliceStable(nodes, func(i, j int) bool { return gitTreeKey(nodes[i]) < gitTreeKey(nodes[j]) })
+}
+
 func (e *Env) lsTree(ctx context.Context, fsys *vfs.FS, root *vfs.Node, prefix, _ string, recursive, dirsOnly, nameOnly bool) int {
 	if recursive {
 		if err := e.Prefetch(ctx, root, -1); err != nil {
@@ -353,6 +372,7 @@ func (e *Env) lsTree(ctx context.Context, fsys *vfs.FS, root *vfs.Node, prefix, 
 		if err != nil {
 			return err
 		}
+		sortGitTree(kids)
 		for _, k := range kids {
 			p := k.Name
 			if pre != "" {

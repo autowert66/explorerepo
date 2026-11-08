@@ -6,6 +6,7 @@ import (
 	"github.com/autowert66/explorerepo/internal/color"
 	"reflect"
 	"regexp"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -248,10 +249,17 @@ func TestPrintf(t *testing.T) {
 }
 
 func TestBadComponent(t *testing.T) {
-	for _, c := range []string{"", ".", "..", ".git", ".GIT", ".Git", "a/b", `a\b`, "a\x00b"} {
+	for _, c := range []string{"", ".", "..", ".git", ".GIT", ".Git", "a/b", "a\x00b"} {
 		if badComponent(c) == nil {
 			t.Errorf("%q should be refused", c)
 		}
+	}
+	if runtime.GOOS == "windows" {
+		if badComponent(`a\b`) == nil {
+			t.Errorf("a\\b should be refused on Windows")
+		}
+	} else if err := badComponent(`a\b`); err != nil {
+		t.Errorf("a\\b is a legal POSIX name: %v", err)
 	}
 	for _, c := range []string{"a", ".github", ".gitignore", "git"} {
 		if err := badComponent(c); err != nil {

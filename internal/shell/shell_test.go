@@ -80,6 +80,8 @@ func TestBasicScripts(t *testing.T) {
 		{"cat link-to-readme | head -1", "# Hello\n", 0},
 		{"cat a/link-up | head -1", "# Hello\n", 0},
 		{"cat a/link-dir/c.txt", "charlie\n", 0},
+		{"cat a/link-dir/../c/c.txt", "charlie\n", 0},
+		{"cd a/link-dir && cd .. && pwd", "/a/b\n", 0},
 		{"head -n 1 README.md a/a.txt", "==> README.md <==\n# Hello\n\n==> a/a.txt <==\nalpha v2\n", 0},
 		{"tail -n 1 README.md", "third line\n", 0},
 		{"tail -n +2 README.md", "second line\nthird line\n", 0},
@@ -141,6 +143,30 @@ func TestBasicScripts(t *testing.T) {
 	}
 }
 
+func TestLogDecorateFlagOrder(t *testing.T) {
+	f := testutil.NewFixture(t)
+	r := run(t, f, "log -n 1 --decorate")
+	if !strings.Contains(r.out, "HEAD -> main") {
+		t.Fatalf("--decorate: %q", r.out)
+	}
+	r = run(t, f, "log -n 1 --decorate --no-decorate")
+	if strings.Contains(r.out, "HEAD -> main") {
+		t.Fatalf("last --no-decorate should win: %q", r.out)
+	}
+	r = run(t, f, "log -n 1 --no-decorate --decorate")
+	if !strings.Contains(r.out, "HEAD -> main") {
+		t.Fatalf("last --decorate should win: %q", r.out)
+	}
+}
+
+func TestGitLsTreeOrder(t *testing.T) {
+	bare := testutil.NewOrdering(t)
+	r := runAt(t, bare, "", "HEAD", "git ls-tree --name-only HEAD")
+	expect(t, "git ls-tree order", r, "a.txt\na\nfoo-bar.txt\nfoo.bar\nfoo.txt\nfoo\n", 0)
+	r = runAt(t, bare, "", "HEAD", "git ls-tree -r --name-only HEAD")
+	expect(t, "git ls-tree -r order", r, "a.txt\na/inside.txt\nfoo-bar.txt\nfoo.bar/inside.txt\nfoo.txt\nfoo/inside.txt\n", 0)
+}
+
 func TestErrorsAndLimits(t *testing.T) {
 	f := testutil.NewFixture(t)
 	cases := []struct {
@@ -166,7 +192,7 @@ func TestErrorsAndLimits(t *testing.T) {
 		{"ls -z", "ls: unsupported option '-z' (supported: -a -l -1 -R -d -F -A)\n", 2, true},
 		{"sed 's/a/b/' README.md", "sed: script \"s/a/b/\" is not supported (only sed -n 'A,Bp', 'Ap', 'A,$p' and 'Nq'; use head, tail or grep for the rest)\n", 2, true},
 		{"find . -size +1k", "find: unsupported predicate '-size' (supported: -name -iname -path -ipath -regex -type f|d|l -maxdepth -mindepth -prune -print -print0 -exec ! -o -a ( ))\n", 2, true},
-		{"git status", "git: only these git subcommands are available: log [-n N] [--oneline] [--decorate], show REV:PATH, ls-tree [-r] [-d] [--name-only] REV [PATH], rev-parse [REV]\n", 2, true},
+		{"git status", "git: only these git subcommands are available: log [-n N] [--oneline] [--decorate|--no-decorate], show REV:PATH, ls-tree [-r] [-d] [--name-only] REV [PATH], rev-parse [REV]\n", 2, true},
 		{"grep -r nothing-matches-this a", "", 1, true},
 		{"cat < /etc/passwd", "sh: /etc/passwd: No such file or directory\n", 1, true},
 	}

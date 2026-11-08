@@ -189,6 +189,94 @@ func TestLog(t *testing.T) {
 	}
 }
 
+func TestLogKeepsChildBeforeParentUnderClockSkew(t *testing.T) {
+	bare, child, parent := testutil.NewClockSkew(t)
+	r, _ := repotest.Open(t, bare, "", "HEAD")
+	l, err := r.Log(ctx, child, 2)
+	if err != nil || len(l) != 2 || l[0].OID != child || l[1].OID != parent {
+		t.Fatalf("log order: %v %v (child %s parent %s)", l, err, child, parent)
+	}
+}
+
+func TestLogEqualDatesKeepGitInsertionOrder(t *testing.T) {
+	bare, want := testutil.NewMergeOrder(t)
+	r, _ := repotest.Open(t, bare, "", "HEAD")
+	l, err := r.Log(ctx, want[0], 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(l) != len(want) {
+		t.Fatalf("log length %d, want %d: %v", len(l), len(want), l)
+	}
+	for i := range want {
+		if l[i].OID != want[i] {
+			t.Fatalf("log[%d] = %s, want %s (full %v)", i, l[i].OID, want[i], l)
+		}
+	}
+}
+
+func TestLogFetchesEnoughForSmallCount(t *testing.T) {
+	bare, tip, want := testutil.NewSkewChain(t, 20)
+	r, _ := repotest.Open(t, bare, "", "HEAD")
+	l, err := r.Log(ctx, tip, 5)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(l) != 5 {
+		t.Fatalf("log length %d, want 5: %v", len(l), l)
+	}
+	for i := range l {
+		if l[i].OID != want[i] {
+			t.Fatalf("log[%d] = %s, want %s", i, l[i].OID, want[i])
+		}
+	}
+}
+
+func TestResolveRevPrefersTagOverBranch(t *testing.T) {
+	f := testutil.NewFixture(t)
+	// git rev-parse prefers refs/tags/<name> over refs/heads/<name>.
+	testutil.Git(t, f.Bare, nil, "update-ref", "refs/heads/v1", f.Commit2.String())
+	r, _ := repotest.Open(t, f.Bare, "", "HEAD")
+	got, err := r.ResolveRev(ctx, "v1")
+	if err != nil || got != f.Commit1 {
+		t.Fatalf("v1 = %s, %v; want tag's commit %s", got, err, f.Commit1)
+	}
+}
+
+func TestUnbornRepoSaysThereAreNoCommits(t *testing.T) {
+	bare := testutil.NewUnborn(t)
+	st, err := store.Open("", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := repo.New(repo.Config{Transport: transport.Local{Path: bare}, Store: st, CacheKey: "unborn", Display: "unborn"})
+	defer r.Close()
+	err = r.Open(ctx, "")
+	if err == nil || (!strings.Contains(err.Error(), "no commits") && !strings.Contains(err.Error(), "unborn")) {
+		t.Fatalf("unborn open: %v", err)
+	}
+}
+
+func TestPeelLongTagChainByOID(t *testing.T) {
+	bare, commit, deepest := testutil.NewTagChain(t, 12)
+	r, _ := repotest.Open(t, bare, "", "HEAD")
+	got, _, err := r.CommitTree(ctx, deepest.String())
+	if err != nil || got != commit {
+		t.Fatalf("tag chain = %s, %v; want %s", got, err, commit)
+	}
+}
+
+func TestPeelTagChainAtTheLimit(t *testing.T) {
+	// 100 tag objects is the documented maximum; the commit behind them must
+	// still be reachable.
+	bare, commit, deepest := testutil.NewTagChain(t, 100)
+	r, _ := repotest.Open(t, bare, "", "HEAD")
+	got, _, err := r.CommitTree(ctx, deepest.String())
+	if err != nil || got != commit {
+		t.Fatalf("tag chain = %s, %v; want %s", got, err, commit)
+	}
+}
+
 // severing wraps a transport and remembers the connections it opened.
 type severing struct {
 	inner transport.Transport

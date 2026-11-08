@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"path"
 	"sort"
 	"strings"
 
@@ -109,12 +108,18 @@ const (
 	ExitNotFound = 127
 )
 
-// Abs resolves a command-line path against the working directory.
+// Abs resolves a command-line path against the working directory. It does not
+// clean the result: the vfs resolves ".." after expanding symlinks, like the
+// kernel, so cleaning here would change the meaning of paths such as
+// link-dir/../file.
 func (e *Env) Abs(p string) string {
 	if strings.HasPrefix(p, "/") {
-		return path.Clean(p)
+		return p
 	}
-	return path.Join(e.Dir, p)
+	if e.Dir == "" || e.Dir == "/" {
+		return "/" + p
+	}
+	return strings.TrimSuffix(e.Dir, "/") + "/" + p
 }
 
 func isFSError(err error) bool {

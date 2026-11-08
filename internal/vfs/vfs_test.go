@@ -115,6 +115,48 @@ func TestSymlinks(t *testing.T) {
 	}
 }
 
+func TestSymlinkDotDot(t *testing.T) {
+	v, _ := newFS(t)
+	// a/link-dir -> b/c. POSIX resolves link-dir to /a/b/c, then .. to /a/b.
+	if b, err := v.ReadFile(ctx, "/a/link-dir/../c/c.txt"); err != nil || string(b) != "charlie\n" {
+		t.Errorf("link-dir/../c/c.txt: %q %v", b, err)
+	}
+	if b, err := v.ReadFile(ctx, "/a/link-dir/../b.txt"); err != nil || string(b) != "bravo\n" {
+		t.Errorf("link-dir/../b.txt: %q %v", b, err)
+	}
+}
+
+func TestSymlinkDotTargets(t *testing.T) {
+	bare := testutil.NewDotLinks(t)
+	r, _ := repotest.Open(t, bare, "", "HEAD")
+	v := vfs.New(r)
+	for _, p := range []string{"/dot/README.md", "/dot/../README.md", "/updown/README.md", "/updown/../README.md"} {
+		if b, err := v.ReadFile(ctx, p); err != nil || string(b) != "root\n" {
+			t.Errorf("%s: %q %v", p, b, err)
+		}
+	}
+	if b, err := v.ReadFile(ctx, "/updown/sub/file.txt"); err != nil || string(b) != "content\n" {
+		t.Errorf("updown/sub/file.txt: %q %v", b, err)
+	}
+}
+
+func TestDuplicateTreeEntryIsFirst(t *testing.T) {
+	bare := testutil.NewDuplicate(t)
+	r, _ := repotest.Open(t, bare, "", "HEAD")
+	v := vfs.New(r)
+	ns, err := v.ReadDir(ctx, "/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := names(ns); strings.Count(got, "dup") != 2 {
+		t.Errorf("entries = %s", got)
+	}
+	b, err := v.ReadFile(ctx, "/dup")
+	if err != nil || string(b) != "good\n" {
+		t.Errorf("dup = %q %v", b, err)
+	}
+}
+
 func TestHostileEntriesHidden(t *testing.T) {
 	bare, _ := testutil.Hostile(t)
 	r, _ := repotest.Open(t, bare, "", "HEAD")

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -115,6 +116,183 @@ func TestPullDefaultDestAndOverwrite(t *testing.T) {
 	}
 	if b, _ := os.ReadFile(filepath.Join(tmp, "c", "c.txt")); string(b) != "charlie\n" {
 		t.Errorf("not overwritten: %q", b)
+	}
+}
+
+func TestPullDestinationSymlink(t *testing.T) {
+	f := testutil.NewFixture(t)
+	tmp := t.TempDir()
+	outside := filepath.Join(tmp, "outside.txt")
+	if err := os.WriteFile(outside, []byte("ORIGINAL\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	dest := filepath.Join(tmp, "dest")
+	if err := os.Symlink(outside, dest); err != nil {
+		t.Skip(err)
+	}
+	r := runAt(t, f.Bare, "", "HEAD", "pull -f README.md "+filepath.ToSlash(dest))
+	if r.status == 0 {
+		t.Fatalf("pull wrote through a destination symlink: %q", r.out)
+	}
+	if b, _ := os.ReadFile(outside); string(b) != "ORIGINAL\n" {
+		t.Fatalf("symlink target overwritten: %q", b)
+	}
+}
+
+func TestPullRefusesSymlinkedParent(t *testing.T) {
+	f := testutil.NewFixture(t)
+	tmp := t.TempDir()
+	outside := t.TempDir()
+	link := filepath.Join(tmp, "link")
+	if err := os.Symlink(outside, link); err != nil {
+		t.Skip(err)
+	}
+	dest := filepath.Join(link, "new")
+	r := runAt(t, f.Bare, "", "HEAD", "pull a/b "+filepath.ToSlash(dest))
+	if r.status == 0 {
+		t.Fatalf("pull wrote through a symlinked parent: %q", r.out)
+	}
+	if ents, _ := os.ReadDir(outside); len(ents) != 0 {
+		t.Fatalf("wrote through symlinked parent: %v", ents)
+	}
+}
+
+func TestPullRefusesDeepSymlinkedAncestor(t *testing.T) {
+	f := testutil.NewFixture(t)
+	tmp := t.TempDir()
+	outside := t.TempDir()
+	real := filepath.Join(outside, "realdir")
+	if err := os.MkdirAll(real, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(tmp, "link")
+	if err := os.Symlink(outside, link); err != nil {
+		t.Skip(err)
+	}
+	dest := filepath.Join(link, "realdir", "new")
+	r := runAt(t, f.Bare, "", "HEAD", "pull a/b "+filepath.ToSlash(dest))
+	if r.status == 0 {
+		t.Fatalf("pull wrote through a symlinked ancestor: %q", r.out)
+	}
+	if ents, _ := os.ReadDir(real); len(ents) != 0 {
+		t.Fatalf("wrote through a symlinked ancestor: %v", ents)
+	}
+}
+
+func TestPullUnicodeNormalizationCollision(t *testing.T) {
+	bare := testutil.NewUnicodeCollision(t)
+	probe := t.TempDir()
+	if err := os.WriteFile(filepath.Join(probe, "é"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Lstat(filepath.Join(probe, "e\u0301")); err != nil {
+		t.Skip("filesystem distinguishes NFC and NFD names")
+	}
+	dest := filepath.Join(t.TempDir(), "u")
+	r := runAt(t, bare, "", "HEAD", "pull / "+filepath.ToSlash(dest))
+	if r.status == 0 {
+		t.Fatalf("pull silently collapsed normalization-equivalent names: %q", r.out)
+	}
+}
+
+func TestPullBackslashName(t *testing.T) {
+	bare := testutil.NewBackslash(t)
+	dest := filepath.Join(t.TempDir(), "b")
+	r := runAt(t, bare, "", "HEAD", "pull / "+filepath.ToSlash(dest))
+	if runtime.GOOS == "windows" {
+		if r.status == 0 {
+			t.Fatalf("pull created a backslash name on Windows: %q", r.out)
+		}
+		return
+	}
+	if r.status != 0 {
+		t.Fatalf("status %d err %q", r.status, r.err)
+	}
+	if b, err := os.ReadFile(filepath.Join(dest, `back\slash.txt`)); err != nil || string(b) != "backslash\n" {
+		t.Fatalf("backslash file: %q %v", b, err)
+	}
+}
+
+func TestPullDirectSubmodule(t *testing.T) {
+	f := testutil.NewFixture(t)
+	dest := filepath.Join(t.TempDir(), "sub")
+	r := runAt(t, f.Bare, "", "HEAD", "pull sub "+filepath.ToSlash(dest))
+	if r.status != 0 {
+		t.Fatalf("status %d err %q", r.status, r.err)
+	}
+	st, err := os.Stat(dest)
+	if err != nil || !st.IsDir() {
+		t.Fatalf("submodule destination: %v %v", st, err)
+	}
+	if ents, _ := os.ReadDir(dest); len(ents) != 0 {
+		t.Fatalf("submodule destination is not empty: %v", ents)
+	}
+	if !strings.Contains(r.err, "skipping submodule") {
+		t.Errorf("missing submodule warning: %q", r.err)
+	}
+}
+
+func TestPullForceDoesNotWriteThroughEntrySymlink(t *testing.T) {
+	f := testutil.NewFixture(t)
+	cases := []struct {
+		name     string
+		dangling bool
+	}{
+		{"existing target", false},
+		{"dangling link", true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			tmp := t.TempDir()
+			outsideDir := filepath.Join(tmp, "outside")
+			if err := os.MkdirAll(outsideDir, 0o755); err != nil {
+				t.Fatal(err)
+			}
+			outside := filepath.Join(outsideDir, "victim.txt")
+			if !tc.dangling {
+				if err := os.WriteFile(outside, []byte("ORIGINAL\n"), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			dest := filepath.Join(tmp, "b")
+			if err := os.MkdirAll(dest, 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Symlink(outside, filepath.Join(dest, "b.txt")); err != nil {
+				t.Skip(err)
+			}
+
+			r := runAt(t, f.Bare, "", "HEAD", "pull -f a/b "+filepath.ToSlash(dest))
+			if r.status != 0 {
+				t.Fatalf("status %d, err %q", r.status, r.err)
+			}
+			if b, err := os.ReadFile(outside); err == nil && (tc.dangling || string(b) != "ORIGINAL\n") {
+				t.Fatalf("wrote through the entry symlink: %q", b)
+			}
+			st, err := os.Lstat(filepath.Join(dest, "b.txt"))
+			if err != nil || st.Mode()&os.ModeSymlink != 0 {
+				t.Fatalf("b.txt is still a symlink: %v %v", st, err)
+			}
+			if b, err := os.ReadFile(filepath.Join(dest, "b.txt")); err != nil || string(b) != "bravo\n" {
+				t.Fatalf("b.txt = %q, %v", b, err)
+			}
+		})
+	}
+}
+
+func TestPullForceOverwritesExistingTree(t *testing.T) {
+	f := testutil.NewFixture(t)
+	dest := filepath.Join(t.TempDir(), "b")
+	if r := runAt(t, f.Bare, "", "HEAD", "pull a/b "+filepath.ToSlash(dest)); r.status != 0 {
+		t.Fatalf("first pull: %d %s", r.status, r.err)
+	}
+	r := runAt(t, f.Bare, "", "HEAD", "pull -f a/b "+filepath.ToSlash(dest))
+	if r.status != 0 {
+		t.Fatalf("second pull: %d %s", r.status, r.err)
+	}
+	b, err := os.ReadFile(filepath.Join(dest, "c", "d", "needle.txt"))
+	if err != nil || !strings.Contains(string(b), "needle") {
+		t.Fatalf("needle after overwrite: %q %v", b, err)
 	}
 }
 
