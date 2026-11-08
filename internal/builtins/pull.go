@@ -107,10 +107,6 @@ func pullCmd(ctx context.Context, env *Env, args []string) int {
 		env.PathErr("pull", src, err)
 		return ExitFail
 	}
-	if n.IsGitlink() {
-		env.PathErr("pull", src, &vfs.SubmoduleError{Commit: n.OID})
-		return ExitFail
-	}
 	dest := ""
 	if len(p.Args) == 2 {
 		dest = p.Args[1]
