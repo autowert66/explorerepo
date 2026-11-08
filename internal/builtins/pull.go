@@ -21,6 +21,35 @@ type pullItem struct {
 	node *vfs.Node
 }
 
+// pulledFile remembers a path this pull created, so a later name that the
+// filesystem resolves to the same file can be reported instead of silently
+// overwriting it. This catches case folds and Unicode normalization folds
+// (APFS/HFS+ compare NFC and NFD names as equal) without a normalization
+// dependency.
+type pulledFile struct {
+	rel  string
+	info os.FileInfo
+}
+
+func collision(seen []pulledFile, rel, target string) error {
+	st, err := os.Lstat(target)
+	if err != nil {
+		return nil
+	}
+	for _, s := range seen {
+		if s.rel == rel || os.SameFile(st, s.info) {
+			return fmt.Errorf("%q and %q name the same file on this filesystem", s.rel, rel)
+		}
+	}
+	return nil
+}
+
+func remember(seen *[]pulledFile, rel, target string) {
+	if st, err := os.Lstat(target); err == nil {
+		*seen = append(*seen, pulledFile{rel: rel, info: st})
+	}
+}
+
 func badComponent(c string) error {
 	switch {
 	case c == "" || c == "." || c == "..":
@@ -162,6 +191,7 @@ func pullCmd(ctx context.Context, env *Env, args []string) int {
 		}
 	}
 	var files, total int64
+	var seen []pulledFile
 	status := ExitOK
 	const chunk = 1000
 	for start := 0; start < len(items); start += chunk {
@@ -185,6 +215,10 @@ func pullCmd(ctx context.Context, env *Env, args []string) int {
 				target = filepath.Join(absDest, filepath.FromSlash(it.rel))
 			}
 			if err := checkParent(absDest, target, n.IsDir()); err != nil {
+				env.Errf("pull", "%v", err)
+				return ExitFail
+			}
+			if err := collision(seen, it.rel, target); err != nil {
 				env.Errf("pull", "%v", err)
 				return ExitFail
 			}
@@ -239,6 +273,7 @@ func pullCmd(ctx context.Context, env *Env, args []string) int {
 				files++
 				total += int64(len(data))
 			}
+			remember(&seen, it.rel, target)
 		}
 	}
 	env.Stdout.Printf("pulled %d files (%.1f MiB) to %s\n", files, float64(total)/(1<<20), dest)
