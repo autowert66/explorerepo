@@ -83,13 +83,9 @@ options: --rev (alias --hash)  --refresh  --no-cache  --no-mux  --https  --no-ht
 env:     EXPLOREREPO_REPO (default --repo)  EXPLOREREPO_CACHE  EXPLOREREPO_DEBUG=1  EXPLOREREPO_QUIET  NO_COLOR
 ```
 
-At a terminal, human-facing output is colored: the help and `--check` text, `ls`/`tree` names by kind,
-`rg`/`grep` filenames, line numbers and matches, and the `git log` commit hash. `log` also shows ref
-decorations like git (`HEAD -> main`, branches, remote branches, `tag: v1`) whenever stdout is a
-terminal, independent of `--color`. Pipes, redirects, and agents get plain
-text: `auto` turns color off when stdout is not a terminal, when `NO_COLOR` is set or `TERM=dumb`, and
-under agent harnesses that set `CLAUDECODE`, `CODEX_SANDBOX`, `GEMINI_CLI` or `CURSOR_AGENT` (some run
-commands in a pseudo-terminal). `FORCE_COLOR` or `CLICOLOR_FORCE` turns it on anyway.
+At a terminal, output is colored; pipes, redirects and known agent harnesses get plain text.
+`--color`, `NO_COLOR`, `FORCE_COLOR` and `CLICOLOR_FORCE` override that (`explorerepo help flags`
+has the details).
 
 `SPEC` accepts `owner/repo` (GitHub), `github.com/owner/repo`, `gitlab.com/group/sub/repo`,
 a gist (`gist:<id>`, `gist.github.com/<id>`, or a pasted `https://gist.github.com/<user>/<id>`
@@ -100,19 +96,7 @@ server speaking Git protocol v2 with filtered fetch works. Servers without filte
 git.kernel.org, savannah) are refused with an error. `explorerepo help repos` prints all of this.
 To test another host, run `explorerepo --repo SPEC --check`: it tries ssh and HTTPS separately,
 without the cache or the fallback, and reports each step (connect with protocol v2 and filter
-support, refs, commit, one tree, a subtree in one request, a blob) and a verdict:
-
-```
-https  https://go.googlesource.com/go.git
-  ok   connect  protocol v2, filter supported, agent JGit/4-google (540ms)
-  ok   refs     HEAD -> b34e3416c8f3c2c1d9ddd6a45f9b17612bac7505 (363ms)
-  ok   commit   fetched with deepen 1, filter tree:0 (797ms)
-  ok   tree     root tree (16 entries), filter tree:1 (1.287s)
-  ok   subtree  .github/ in one request, filter blob:none, 524 pack bytes (599ms)
-  ok   blob     .gitattributes, 639 bytes (977ms)
-
-verdict: works over https (public repositories only); ssh failed, so private repositories on go.googlesource.com need a working ssh key
-```
+support, refs, commit, one tree, a subtree in one request, a blob) and a verdict.
 
 It exits 0 when at least one transport works and 128 otherwise. `--https` or `--no-https` limits it
 to one transport.
@@ -144,23 +128,7 @@ The exit status is the script's. Setup errors (auth, repository not found, bad r
 127, a timeout exits 124, an internal error exits 70, and an unsupported option exits 2. Output beyond `--max-output` is cut off with a notice on stderr;
 truncation is not an error.
 
-### Commands
-
-`cat head tail sed(-n ranges) wc nl stat ls tree find grep rg sort uniq cut tr xargs basename dirname
-tee refs log git(log/show/ls-tree/rev-parse) pull help`, plus the shell's own builtins
-(`cd pwd echo printf test [ read`, loops, `$(...)`, pipes, globs, redirects to `/dev/null`).
-
-Agents that check for a tool first get a truthful answer: `type rg`, `command -v rg`, and
-`which rg` report every command above as available (they print the bare name, since these are
-builtins with no path), and `rg --version` / `rg --help` print a short stub instead of failing.
-So `type -p rg && rg ...` proceeds rather than falling back to `grep`.
-
-Run `explorerepo help` for the commands. `explorerepo help flags` documents the options,
-`explorerepo help repos` covers SPEC forms, hosts and private repositories, and `explorerepo help
-about` prints the version, source, resolved cache directory and exit codes. `explorerepo --help`
-prints the short usage to stdout, and `explorerepo --help TOPIC` is the same as `explorerepo help
-TOPIC`. An unsupported flag or command, or an unknown topic, fails with exit 2 and the
-list of supported options instead of producing silently wrong output.
+### pull
 
 `pull [-f] PATH [DEST]` is the only command that writes to the real disk. It copies a file or
 directory to `DEST` (default `./<basename of PATH>`), refusing to overwrite without `-f` and refusing
@@ -175,40 +143,6 @@ Objects are stored as git loose objects, so you can read them with
 `GIT_OBJECT_DIRECTORY=<cache>/objects git cat-file -p <oid>`. Refs are cached for 10 minutes so an
 agent sees a consistent snapshot across calls; `--refresh` bypasses the ref cache, and `--no-cache`
 keeps everything in memory. To reset, delete that directory; nothing else is written.
-
-## How it works
-
-- **Transport.** The system `ssh` binary respects `~/.ssh/config`, keys, agent, and known_hosts, and
-  runs a private ControlMaster (`/tmp/explorerepo-<uid>/`) so repeated invocations reuse one
-  connection. The private socket matters: a user-configured master started without
-  `SendEnv=GIT_PROTOCOL` silently downgrades the session to protocol v0, so explorerepo always sets
-  its own ControlPath. `--no-mux` disables multiplexing. When the SSH session cannot be established,
-  the same protocol v2 runs over anonymous HTTPS smart HTTP instead; see [Transports](#transports).
-- **Laziness.** A commit is fetched with `deepen 1` and `filter tree:0`, then one tree per directory
-  actually entered. Recursive commands (`find`, `grep -r`, `rg`, `tree`, `ls -R`, `pull`) fetch the
-  whole subtree structure in one `blob:none` request, then the needed blobs in batches of up to 1000.
-- **Safety.** No real program is executed, and nothing on the host filesystem is read or written
-  except by `pull`. Symlinks that leave the repository are errors; submodules appear as empty
-  directories (`not fetched`); tree entries named `..`, `.`, empty, or containing `/` or NUL are
-  hidden. `--max-fetch`, `--max-files`, `--max-output`, and `--timeout` bound a runaway command.
-
-Protocol details, measured costs, and the v0-downgrade probe are in `docs/PROBES.md`. Set
-`EXPLOREREPO_DEBUG=1` to log every request (command, wants, filter, bytes, ms) to stderr.
-
-## Prompt snippet for an agent
-
-```
-You can inspect the remote repo ORG/REPO without cloning it by running:
-  explorerepo --repo ORG/REPO [--rev BRANCH_OR_TAG] -c '<shell script>'
-It is a read-only shell (ls, cat, head, tail, sed -n, wc, find, tree, grep, rg, sort, uniq, cut, tr,
-xargs, git log/show/ls-tree, pipes, loops, globs). Directory listings are cheap; recursive grep/find
-fetch every file under the path, so narrow with a path, --include or -g. `type`, `command -v` and
-`which` report these commands as available (they are builtins, so they print the name, not a path);
-use them instead of falling back to a worse tool. Run `explorerepo help` for the exact flag list.
-A GitHub gist works the same way: `--repo gist:<id>` (or the gist URL). To work on a subtree with
-real tools:
-  explorerepo --repo ORG/REPO pull PATH ./dest
-```
 
 ## Development
 
