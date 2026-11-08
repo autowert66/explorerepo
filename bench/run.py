@@ -8,7 +8,9 @@ import subprocess
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-TASKS = json.load(open(os.path.join(HERE, "tasks.json")))
+TASKS = json.load(open(os.path.join(HERE, os.environ.get("TASKS_FILE", "tasks.json"))))
+RUNS = os.environ.get("RUNS_DIR", "runs")
+TIMEOUT = os.environ.get("TIMEOUT", "600")
 REPS = int(os.environ.get("REPS", "3"))
 PAR = int(os.environ.get("PAR", "4"))
 MODEL = os.environ.get("MODEL", "opencode-go/deepseek-v4.1-flash")
@@ -20,12 +22,12 @@ prompts = {t["id"]: t["prompt"] for t in TASKS}
 
 def run(job):
     tid, variant, rep = job
-    out = os.path.join(HERE, "runs", f"{tid}__{variant}__{rep}")
+    out = os.path.join(HERE, RUNS, f"{tid}__{variant}__{rep}")
     if os.path.exists(os.path.join(out, "meta.json")):
         return job, "skip"
     os.makedirs(out, exist_ok=True)
     os.chmod(out, 0o777)
-    cmd = ["docker", "run", "--rm", "-e", f"VARIANT={variant}", "-e", f"PROMPT={prompts[tid]}", "-e", f"MODEL={MODEL}",
+    cmd = ["docker", "run", "--rm", "-e", f"VARIANT={variant}", "-e", f"PROMPT={prompts[tid]}", "-e", f"MODEL={MODEL}", "-e", f"TIMEOUT={TIMEOUT}",
            "-v", f"{HERE}/build/go.json:/run/go.json:ro", "-v", f"{out}:/out", "ocbench", "entry.sh"]
     p = subprocess.run(cmd, capture_output=True, text=True)
     if p.returncode:

@@ -7,7 +7,9 @@ import re
 import statistics as st
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-TASKS = {t["id"]: t for t in json.load(open(os.path.join(HERE, "tasks.json")))}
+TASKS = {t["id"]: t for t in json.load(open(os.path.join(HERE, os.environ.get("TASKS_FILE", "tasks.json"))))}
+RUNS_DIR = os.environ.get("RUNS_DIR", "runs")
+RESULTS = os.environ.get("RESULTS", "results.json")
 # opencode-go list price for deepseek-v4.1-flash, USD per 1M tokens (from models.dev)
 PRICE = {"input": 0.15, "output": 0.6, "cache_read": 0.003}
 
@@ -85,10 +87,10 @@ def parse(path):
     }
 
 
-runs = [parse(p) for p in sorted(glob.glob(os.path.join(HERE, "runs", "*")))
+runs = [parse(p) for p in sorted(glob.glob(os.path.join(HERE, RUNS_DIR, "*")))
         if os.path.exists(os.path.join(p, "meta.json"))]
 json.dump({"tasks": list(TASKS.values()), "runs": runs, "price": PRICE},
-          open(os.path.join(HERE, "results.json"), "w"), indent=1)
+          open(os.path.join(HERE, RESULTS), "w"), indent=1)
 
 for tid in TASKS:
     for v in ("without", "with"):

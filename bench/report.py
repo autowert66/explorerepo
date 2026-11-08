@@ -8,7 +8,7 @@ import statistics as st
 from datetime import datetime, timezone
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-D = json.load(open(os.path.join(HERE, "results.json")))
+D = json.load(open(os.path.join(HERE, os.environ.get("RESULTS", "results.json"))))
 RUNS, TASKS = D["runs"], D["tasks"]
 V = ("without", "with")
 NAME = {"without": "without explorerepo", "with": "with explorerepo"}
@@ -31,6 +31,11 @@ def k(x):
     return f"{x / 1000:.0f}k" if x >= 10000 else f"{x / 1000:.1f}k"
 
 
+def rng_k(rs, f):
+    xs = [f(r) for r in rs]
+    return f"{k(st.mean(xs))} ({k(min(xs))}–{k(max(xs))})"
+
+
 def pct(a, b):
     return f"{(b - a) / a * 100:+.0f}%"
 
@@ -38,7 +43,9 @@ def pct(a, b):
 METRICS = [
     ("tool calls", lambda r: r["tool_calls"], "{:.1f}"),
     ("model requests", lambda r: r["steps"], "{:.1f}"),
-    ("tokens (in + out)", lambda r: r["tokens_total"], None),
+    ("input tokens, uncached", lambda r: r["tokens"]["input"], None),
+    ("input tokens, cache read", lambda r: r["tokens"]["cache_read"], None),
+    ("output tokens (with reasoning)", lambda r: r["tokens"]["output"] + r["tokens"]["reasoning"], None),
     ("wall time (s)", lambda r: r["wall_s"], "{:.1f}"),
 ]
 
@@ -76,22 +83,23 @@ a, b = mean(sel(variant="without"), lambda r: r["cost_usd"]), mean(sel(variant="
 w(f"| list-price cost (USD) | {a:.4f} | {b:.4f} | {pct(a, b)} |")
 ca, cb = sum(r["correct"] for r in sel(variant="without")), sum(r["correct"] for r in sel(variant="with"))
 w(f"| correct answers | {ca}/{len(sel(variant='without'))} | {cb}/{len(sel(variant='with'))} | |\n")
-w("Tokens are input (uncached + cache reads) plus output (including reasoning), summed over every model request of "
-  "the run; each request re-sends the conversation, so tokens grow with the number of requests and the size of what "
-  "the tools return. Cost uses the models.dev list price ($0.15 / 1M input, $0.003 / 1M cache read, $0.60 / 1M "
+w("Tokens are summed over every model request of the run and reported by type, because the types are billed very "
+  "differently: uncached input, cache reads (the part of the conversation the provider already holds, re-sent on each "
+  "request) and output (including reasoning). Each request re-sends the conversation, so input grows with the number "
+  "of requests and the size of what the tools return. Cost uses the models.dev list price ($0.15 / 1M input, $0.003 / 1M cache read, $0.60 / 1M "
   "output); the Go subscription itself reports $0. Correctness is a check that the answer contains the facts "
   "verified in the source beforehand (listed per task below).\n")
 
 w("## Per task\n")
 w("Mean (min–max) over the runs.\n")
-w("| task | variant | tool calls | requests | tokens | time (s) | correct |")
-w("|---|---|---|---|---|---|---|")
+w("| task | variant | tool calls | requests | input | cache read | output | time (s) | correct |")
+w("|---|---|---|---|---|---|---|---|---|")
 for t in TASKS:
     for v in V:
         rs = sel(t["id"], v)
-        tok = [r["tokens_total"] for r in rs]
         w(f"| {t['id']} | {v} | {rng(rs, lambda r: r['tool_calls'], '{:.1f}')} | {rng(rs, lambda r: r['steps'], '{:.1f}')} "
-          f"| {k(st.mean(tok))} ({k(min(tok))}–{k(max(tok))}) | {rng(rs, lambda r: r['wall_s'], '{:.0f}')} "
+          f"| {rng_k(rs, lambda r: r['tokens']['input'])} | {rng_k(rs, lambda r: r['tokens']['cache_read'])} "
+          f"| {rng_k(rs, lambda r: r['tokens']['output'] + r['tokens']['reasoning'])} | {rng(rs, lambda r: r['wall_s'], '{:.0f}')} "
           f"| {sum(r['correct'] for r in rs)}/{len(rs)} |")
 w("")
 
@@ -123,12 +131,15 @@ for t in TASKS:
     for v in V:
         rs = sel(t["id"], v)
         w(f"<details>\n<summary><b>{v}</b>: {mean(rs, lambda r: r['tool_calls']):.1f} calls, "
-          f"{k(mean(rs, lambda r: r['tokens_total']))} tokens, {mean(rs, lambda r: r['wall_s']):.0f} s per run</summary>\n")
+          f"{k(mean(rs, lambda r: r['tokens']['input']))} input, {k(mean(rs, lambda r: r['tokens']['cache_read']))} cache read, "
+          f"{k(mean(rs, lambda r: r['tokens']['output'] + r['tokens']['reasoning']))} output tokens, "
+          f"{mean(rs, lambda r: r['wall_s']):.0f} s per run</summary>\n")
         w(counts_table(rs) + "\n")
         for r in sorted(rs, key=lambda r: r["rep"]):
             tk = r["tokens"]
             w(f"<details>\n<summary>run {r['rep'] + 1}: {r['tool_calls']} calls, {r['steps']} requests, "
-              f"{k(r['tokens_total'])} tokens, {r['wall_s']:.0f} s, {'correct' if r['correct'] else 'incorrect'}</summary>\n")
+              f"{k(tk['input'])} input, {k(tk['cache_read'])} cache read, {k(tk['output'] + tk['reasoning'])} output tokens, "
+              f"{r['wall_s']:.0f} s, {'correct' if r['correct'] else 'incorrect'}</summary>\n")
             w(f"Tokens: {tk['input']:,} input, {tk['cache_read']:,} cache read, {tk['output']:,} output, "
               f"{tk['reasoning']:,} reasoning.\n")
             w("| # | tool | status | input |")

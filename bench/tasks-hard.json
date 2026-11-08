@@ -1,0 +1,117 @@
+[
+ {
+  "id": "linux-scx-watchdog",
+  "named": true,
+  "prompt": "In the current Linux kernel source, how does sched_ext (the BPF extensible scheduler class) detect a stalled scheduler? Give the default time slice (constant, value, file), the upper bound on the watchdog timeout (constant, value, file), and what the kernel does when a runnable task has not run for longer than the timeout.",
+  "expect": "SCX_SLICE_DFL = 20ms (include/linux/sched/ext.h); SCX_WATCHDOG_MAX_TIMEOUT = 30*HZ (kernel/sched/ext/types.h); check_rq_for_timeouts() calls __scx_exit(SCX_EXIT_ERROR_STALL) 'runnable task stall', ejecting the BPF scheduler",
+  "checks": [
+   "20 ?ms|20,?000,?000|20 ?\\* ?1000000|20 ?\\* ?NSEC_PER_MSEC",
+   "30 ?\\* ?HZ|\\b30 ?s(ec(onds?)?)?\\b",
+   "types\\.h",
+   "sched/ext\\.h",
+   "(?i)stall"
+  ]
+ },
+ {
+  "id": "linux-hid-apple-fnmode",
+  "named": true,
+  "prompt": "In the Linux kernel's hid-apple driver, what is the default value of the fnmode module parameter, and which mode does the driver actually apply at that default for (a) a keyboard with the disable-fkeys quirk, (b) a non-Apple keyboard, and (c) any other Apple keyboard? Cite the file.",
+  "expect": "default 3 (auto); disable-fkeys quirk -> 4 (fkeysdisabled), non-Apple -> 2 (fkeysfirst), otherwise 1 (fkeyslast); drivers/hid/hid-apple.c",
+  "checks": [
+   "\\b3\\b",
+   "(?is)(disable.?fkeys).{0,250}\\b4\\b|\\b4\\b.{0,250}(disable.?fkeys)",
+   "(?is)(non.?apple).{0,250}\\b2\\b|\\b2\\b.{0,250}non.?apple",
+   "fkeyslast|\\b1\\b",
+   "hid-apple\\.c"
+  ]
+ },
+ {
+  "id": "linux-rust-binder-spawn",
+  "named": true,
+  "prompt": "The Linux kernel now has a Rust implementation of the Android Binder driver. In which directory does it live, and under exactly which conditions does it ask userspace to spawn another looper thread? Name the function and the file.",
+  "expect": "drivers/android/binder/; Process::needs_thread() in process.rs: requested_thread_count == 0 && ready_threads empty && started_thread_count < max_threads",
+  "checks": [
+   "drivers/android/binder",
+   "needs_thread",
+   "process\\.rs",
+   "max_threads",
+   "(?i)ready_threads|no (ready|idle|waiting) thread"
+  ]
+ },
+ {
+  "id": "aosp-lmkd-psi",
+  "named": true,
+  "prompt": "In AOSP's lmkd (the low memory killer daemon in system/memory/lmkd), what are the default PSI partial-stall and complete-stall thresholds in milliseconds, how does the partial-stall default change on a low-RAM device, and which property overrides the ro.lmk.* values?",
+  "expect": "partial 70 ms (200 on low_ram), complete 700 ms; persist.device_config.lmkd_native.<name> overrides ro.lmk.<name>",
+  "checks": [
+   "\\b70\\b",
+   "\\b200\\b",
+   "\\b700\\b",
+   "persist\\.device_config\\.lmkd_native"
+  ]
+ },
+ {
+  "id": "aosp-libbinder-limits",
+  "named": false,
+  "prompt": "In Android's libbinder (frameworks/native), what is the default maximum number of binder threads per process, and how large is the binder transaction buffer the process mmaps? Give the exact expression and the file it is defined in.",
+  "expect": "DEFAULT_MAX_BINDER_THREADS 15; BINDER_VM_SIZE ((1 * 1024 * 1024) - sysconf(_SC_PAGE_SIZE) * 2); libs/binder/ProcessState.cpp",
+  "checks": [
+   "\\b15\\b",
+   "1 ?\\* ?1024 ?\\* ?1024",
+   "(?i)page.?size",
+   "ProcessState\\.cpp"
+  ]
+ },
+ {
+  "id": "aosp-am-cached-processes",
+  "named": false,
+  "prompt": "In Android's ActivityManagerConstants (frameworks/base), what are the default maximum cached processes and the default maximum phantom processes, and how is the empty-process limit computed from the total process limit?",
+  "expect": "DEFAULT_MAX_CACHED_PROCESSES 1024; DEFAULT_MAX_PHANTOM_PROCESSES 32; computeEmptyProcessLimit(total) = total/2",
+  "checks": [
+   "\\b1024\\b",
+   "\\b32\\b",
+   "(?i)half|/ ?2|divided by 2",
+   "ActivityManagerConstants"
+  ]
+ },
+ {
+  "id": "chromium-renderer-limit",
+  "named": true,
+  "prompt": "How does Chromium decide the maximum number of renderer processes on desktop (not Android)? Give the memory formula, the per-WebContents memory estimate on 64-bit, the minimum, where the maximum comes from and its fallback value, and name the source file.",
+  "expect": "RAM in MiB / 2 / 85 (64-bit), clamped to [3, GetPlatformMaxRendererProcessCount()]; platform max = half the system process limit, fallback 82; content/browser/renderer_host/render_process_host_impl.cc",
+  "checks": [
+   "\\b85\\b",
+   "\\b3\\b",
+   "\\b82\\b",
+   "(?i)half|/ ?2",
+   "render_process_host_impl"
+  ]
+ },
+ {
+  "id": "k8s-eviction-hard",
+  "named": true,
+  "prompt": "What are the kubelet's default hard eviction thresholds on Linux, how do the Windows defaults differ, and which source files define them?",
+  "expect": "Linux (pkg/kubelet/eviction/defaults_linux.go): memory.available 100Mi, nodefs.available 10%, nodefs.inodesFree 5%, imagefs.available 15%, imagefs.inodesFree 5%; Windows (defaults_windows.go): memory.available 500Mi, no inodesFree",
+  "checks": [
+   "100 ?Mi",
+   "500 ?Mi",
+   "defaults_linux\\.go",
+   "defaults_windows\\.go",
+   "(?i)inodesFree"
+  ]
+ },
+ {
+  "id": "linux-zram-default-comp",
+  "named": true,
+  "prompt": "In the Linux kernel, how is the default zram compression algorithm chosen at build time? Name the Kconfig symbol that holds the resulting string, the choice entry that is selected by default, which algorithms can be selected, and the source files that define it and consume it.",
+  "expect": "drivers/block/zram/Kconfig: choice 'Default zram compressor' defaults to ZRAM_DEF_COMP_LZORLE (lzo-rle); alternatives lzo, lz4, lz4hc, zstd, deflate, 842; string symbol ZRAM_DEF_COMP; consumed in drivers/block/zram/zram_drv.c as default_compressor = CONFIG_ZRAM_DEF_COMP",
+  "checks": [
+   "ZRAM_DEF_COMP\\b",
+   "ZRAM_DEF_COMP_LZORLE|lzo-rle",
+   "(?i)zstd",
+   "(?i)deflate",
+   "Kconfig",
+   "zram_drv\\.c"
+  ]
+ }
+]
