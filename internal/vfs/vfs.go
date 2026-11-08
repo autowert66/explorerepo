@@ -111,7 +111,9 @@ func (f *FS) entries(ctx context.Context, dir *Node) ([]object.Entry, error) {
 		}
 		out = append(out, e)
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
+	// Stable so corrupt trees with duplicate names resolve to the first entry,
+	// as git does, instead of an arbitrary one.
+	sort.SliceStable(out, func(i, j int) bool { return out[i].Name < out[j].Name })
 	return out, nil
 }
 
