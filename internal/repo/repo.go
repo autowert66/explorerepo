@@ -3,6 +3,7 @@
 package repo
 
 import (
+	"container/heap"
 	"context"
 	"errors"
 	"fmt"
@@ -598,15 +599,44 @@ func (r *Repo) Sizes(ctx context.Context, oids []object.OID) map[object.OID]int6
 	return out
 }
 
-// Log fetches up to n commits ending at oid (no trees or blobs).
+// logItem carries the discovery index so equal timestamps keep the
+// breadth-first order git produces.
+type logItem struct {
+	entry LogEntry
+	order int
+}
+
+type logHeap []logItem
+
+func (h logHeap) Len() int { return len(h) }
+func (h logHeap) Less(i, j int) bool {
+	a, b := h[i], h[j]
+	if !a.entry.Commit.Time.Equal(b.entry.Commit.Time) {
+		return a.entry.Commit.Time.After(b.entry.Commit.Time)
+	}
+	return a.order < b.order
+}
+func (h logHeap) Swap(i, j int) { h[i], h[j] = h[j], h[i] }
+func (h *logHeap) Push(x any)   { *h = append(*h, x.(logItem)) }
+func (h *logHeap) Pop() any {
+	old := *h
+	n := len(old)
+	x := old[n-1]
+	*h = old[:n-1]
+	return x
+}
+
+// Log fetches up to n commits ending at oid (no trees or blobs). A commit is
+// emitted only after all of its children, so clock skew cannot put a parent
+// before its child; ready commits are ordered newest first like git log.
 func (r *Repo) Log(ctx context.Context, oid object.OID, n int) ([]LogEntry, error) {
 	if err := r.fetch(ctx, []object.OID{oid}, "tree:0", n); err != nil {
 		return nil, err
 	}
-	var out []LogEntry
+	var all []LogEntry
 	seen := map[object.OID]bool{}
 	queue := []object.OID{oid}
-	for len(queue) > 0 && len(out) < n {
+	for len(queue) > 0 && len(all) < n {
 		cur := queue[0]
 		queue = queue[1:]
 		if seen[cur] {
@@ -621,10 +651,43 @@ func (r *Repo) Log(ctx context.Context, oid object.OID, n int) ([]LogEntry, erro
 		if err != nil {
 			return nil, err
 		}
-		out = append(out, LogEntry{OID: cur, Commit: ci})
+		all = append(all, LogEntry{OID: cur, Commit: ci})
 		queue = append(queue, ci.Parents...)
 	}
-	sort.SliceStable(out, func(i, j int) bool { return out[i].Commit.Time.After(out[j].Commit.Time) })
+	index := make(map[object.OID]int, len(all))
+	for i, e := range all {
+		index[e.OID] = i
+	}
+	children := make([]int, len(all))
+	for _, e := range all {
+		for _, p := range e.Commit.Parents {
+			if j, ok := index[p]; ok {
+				children[j]++
+			}
+		}
+	}
+	h := &logHeap{}
+	for i, e := range all {
+		if children[i] == 0 {
+			*h = append(*h, logItem{entry: e, order: i})
+		}
+	}
+	heap.Init(h)
+	out := make([]LogEntry, 0, len(all))
+	for h.Len() > 0 && len(out) < n {
+		e := heap.Pop(h).(logItem).entry
+		out = append(out, e)
+		for _, p := range e.Commit.Parents {
+			j, ok := index[p]
+			if !ok {
+				continue
+			}
+			children[j]--
+			if children[j] == 0 {
+				heap.Push(h, logItem{entry: all[j], order: j})
+			}
+		}
+	}
 	return out, nil
 }
 
