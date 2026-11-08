@@ -24,10 +24,14 @@ To read or search the source of any remote git repo (a library, a dependency, a 
 
 `explorerepo help agents` prints the same line, so `explorerepo help agents >> ~/.claude/CLAUDE.md` works too.
 
-In a benchmark of opencode with DeepSeek V4.1 Flash (6 questions about real repos, 36 runs, each in a fresh
-container with web search and webfetch available), installing explorerepo and this line cut tool calls by 57%,
-tokens by 71%, and time to answer by 66%, with every answer correct either way. Per-run tool breakdowns are in
-[`docs/BENCHMARK.md`](docs/BENCHMARK.md); the harness in `bench/` reruns it.
+A benchmark of opencode with DeepSeek V4.1 Flash covers 15 questions about real repositories, from ripgrep and fzf
+to the Linux kernel, Android, Chromium and Kubernetes. Each question ran three times per variant in a fresh container
+with web search and webfetch available. With explorerepo installed and the line above in place, agents made 52 to 57%
+fewer tool calls, used 53 to 63% fewer uncached input tokens and answered 45 to 66% faster, depending on the question
+set, and every answer was correct either way. The gain varies by question: Kubernetes's default eviction thresholds
+took 3.3 tool calls instead of 13.7, and Chromium's renderer-process limit took 7.3 instead of 9.0. It is one model
+and one agent harness. [`docs/BENCHMARK.md`](docs/BENCHMARK.md) has the tables, per-run tool breakdowns and limits,
+and the harness in `bench/` reruns it.
 
 Then agents work in place:
 
@@ -53,8 +57,8 @@ reads and caches them between calls.
 `raw.githubusercontent.com` and the GitHub REST API return one file or one directory listing per request, and
 neither can grep. GitHub limits unauthenticated REST requests to 60 per hour per IP address
 ([GitHub docs](https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api)). Both are
-GitHub-only. In the [benchmark](docs/BENCHMARK.md), 89 of the 196 tool calls in the runs without explorerepo
-were raw file downloads. `git archive --remote` is rejected by GitHub over both HTTPS and ssh.
+GitHub-only. In the small-repository set of the [benchmark](docs/BENCHMARK.md), 89 of the 196 tool calls in the runs
+without explorerepo were raw file downloads. `git archive --remote` is rejected by GitHub over both HTTPS and ssh.
 
 Hosted MCP servers expose a fixed set of tools. GitMCP's README lists four: fetch documentation, search
 documentation, search code (through GitHub's code search), and fetch a URL. DeepWiki's MCP server returns
