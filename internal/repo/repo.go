@@ -279,9 +279,13 @@ func (r *Repo) Open(ctx context.Context, rev string) error {
 	return nil
 }
 
+// maxTagDepth bounds a tag->tag chain. Content addressing makes a real cycle
+// impossible, but a hostile server can still make us do work in a loop.
+const maxTagDepth = 100
+
 // peel follows annotated tags until a commit is reached.
 func (r *Repo) peel(ctx context.Context, oid object.OID) (object.OID, *object.CommitInfo, error) {
-	for i := 0; i < 10; i++ {
+	for i := 0; i < maxTagDepth; i++ {
 		t, data, err := r.object(ctx, oid, "tree:0", 1)
 		if err != nil {
 			return oid, nil, err
