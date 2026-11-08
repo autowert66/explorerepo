@@ -140,6 +140,21 @@ func TestExpandSet(t *testing.T) {
 	}
 }
 
+// A set that starts with the class opener but closes immediately ("[:]") is
+// malformed. It must be rejected or treated literally, never panic.
+func TestExpandSetUnterminatedClass(t *testing.T) {
+	for _, in := range []string{"[:]", "a[:]b", "[:]x"} {
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					t.Errorf("expandSet(%q) panicked: %v", in, r)
+				}
+			}()
+			_, _ = expandSet(in)
+		}()
+	}
+}
+
 func TestParseListAndKey(t *testing.T) {
 	rs, err := parseList("1,3-4,6-")
 	if err != nil {
