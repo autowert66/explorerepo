@@ -141,7 +141,7 @@ used, a hint is printed to stderr at most once per day (recorded in the cache di
 
 The exit status is the script's. Setup errors (auth, repository not found, bad revision) print
 `explorerepo: ...` and exit 128. A missing `--repo` exits 2 (usage error). An unknown command exits
-127, a timeout exits 124, and an unsupported option exits 2. Output beyond `--max-output` is cut off with a notice on stderr;
+127, a timeout exits 124, an internal error exits 70, and an unsupported option exits 2. Output beyond `--max-output` is cut off with a notice on stderr;
 truncation is not an error.
 
 ### Commands
