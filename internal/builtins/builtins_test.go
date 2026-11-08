@@ -143,7 +143,7 @@ func TestExpandSet(t *testing.T) {
 // A set that starts with the class opener but closes immediately ("[:]") is
 // malformed. It must be rejected or treated literally, never panic.
 func TestExpandSetUnterminatedClass(t *testing.T) {
-	for _, in := range []string{"[:]", "a[:]b", "[:]x"} {
+	for _, in := range []string{"[:]", "a[:]b", "[:]x", "[:🎉🎉🎉🎉🎉🎉🎉🎉:]", "[:ä:]"} {
 		func() {
 			defer func() {
 				if r := recover(); r != nil {
@@ -308,6 +308,7 @@ func TestBadComponent(t *testing.T) {
 func TestBadComponentWindows(t *testing.T) {
 	for _, c := range []string{
 		`a\b`, "a:b", "CON", "con.txt", "NUL", "COM1", "LPT9", "trailing.", "trailing ",
+		"GIT~1", ".git~1", "git~2",
 	} {
 		if badComponentFor(c, true) == nil {
 			t.Errorf("%q should be refused on Windows", c)
@@ -321,7 +322,10 @@ func TestBadComponentWindows(t *testing.T) {
 }
 
 func TestInsideDestWindows(t *testing.T) {
-	for _, target := range []string{`C:\Windows`, `C:/Windows`, `\\server\share`, `//server/share`} {
+	for _, target := range []string{
+		`C:\Windows`, `C:/Windows`, `\\server\share`, `//server/share`,
+		`\Windows\System32`, `..\..\outside`, `sub\..\..\..\outside`,
+	} {
 		if insideDestFor("a/link", target, true) {
 			t.Errorf("insideDestFor(%q) = true on Windows", target)
 		}

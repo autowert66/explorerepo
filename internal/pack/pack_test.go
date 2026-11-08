@@ -2,6 +2,9 @@ package pack
 
 import (
 	"bytes"
+	"compress/zlib"
+	"crypto/sha1"
+	"encoding/binary"
 	"os/exec"
 	"strings"
 	"testing"
@@ -130,6 +133,55 @@ func TestParseTotalBudget(t *testing.T) {
 	if err := Parse(bytes.NewReader(data), Options{MaxTotalBytes: 1},
 		func(Raw) error { return nil }); err == nil {
 		t.Fatal("expected the total-data budget to reject the pack")
+	}
+}
+
+// refDeltaPack builds a one-object pack holding a REF_DELTA for a base that is
+// not present, so the parser has to retain the delta until it gives up.
+func refDeltaPack(t *testing.T, body []byte) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	buf.WriteString("PACK")
+	_ = binary.Write(&buf, binary.BigEndian, uint32(2))
+	_ = binary.Write(&buf, binary.BigEndian, uint32(1))
+
+	// type 7 (REF_DELTA); the size is a little-endian base-128 varint.
+	size := len(body)
+	b := byte(size&0x0f) | 7<<4
+	size >>= 4
+	if size > 0 {
+		b |= 0x80
+	}
+	buf.WriteByte(b)
+	for size > 0 {
+		c := byte(size & 0x7f)
+		size >>= 7
+		if size > 0 {
+			c |= 0x80
+		}
+		buf.WriteByte(c)
+	}
+	buf.Write([]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20})
+
+	zw := zlib.NewWriter(&buf)
+	if _, err := zw.Write(body); err != nil {
+		t.Fatal(err)
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	sum := sha1.Sum(buf.Bytes())
+	buf.Write(sum[:])
+	return buf.Bytes()
+}
+
+// A delta waiting for a missing base still consumes memory and must count
+// against the pack budget.
+func TestPendingDeltaBudget(t *testing.T) {
+	data := refDeltaPack(t, bytes.Repeat([]byte{0}, 64))
+	err := Parse(bytes.NewReader(data), Options{MaxTotalBytes: 16}, func(Raw) error { return nil })
+	if err == nil || !strings.Contains(err.Error(), "exceeds") {
+		t.Fatalf("error = %v, want a limit error", err)
 	}
 }
 

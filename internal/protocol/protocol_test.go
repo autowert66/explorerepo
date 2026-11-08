@@ -97,9 +97,34 @@ func TestOversizedCapabilityAdvertisement(t *testing.T) {
 	_ = w.Flush()
 
 	conn := &capsConn{r: bytes.NewReader(buf.Bytes())}
-	_, _ = Dial(context.Background(), capsTransport{conn})
+	_, err := Dial(context.Background(), capsTransport{conn})
+	if err == nil || !strings.Contains(err.Error(), "oversized") {
+		t.Fatalf("err = %v, want an oversized-advertisement error", err)
+	}
 	if conn.n > 2<<20 {
 		t.Fatalf("read %d bytes of capability advertisement", conn.n)
+	}
+}
+
+// Empty packets have no payload but still cost a packet header; a flood of
+// them must not keep the reader looping.
+func TestDelimFloodInAdvertisement(t *testing.T) {
+	var buf bytes.Buffer
+	w := pktline.NewWriter(&buf)
+	if err := w.Line("version 2"); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 300_000; i++ {
+		if err := w.Delim(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	_ = w.Flush()
+
+	conn := &capsConn{r: bytes.NewReader(buf.Bytes())}
+	_, err := Dial(context.Background(), capsTransport{conn})
+	if err == nil || !strings.Contains(err.Error(), "oversized") {
+		t.Fatalf("err = %v, want an oversized-advertisement error", err)
 	}
 }
 
