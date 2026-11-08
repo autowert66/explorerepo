@@ -242,6 +242,26 @@ func NewDotLinks(t testing.TB) string {
 	return repo
 }
 
+// NewSkewChain builds a linear history whose child commits are older than
+// their parents, and returns the tip and the expected newest-first order.
+func NewSkewChain(t testing.TB, n int) (repo string, tip object.OID, want []object.OID) {
+	t.Helper()
+	repo = newRawRepo(t, "skewchain")
+	blob := RawBlob(t, repo, []byte("skew chain\n"))
+	tree := RawTree(t, repo, []RawEntry{{Mode: "100644", Name: "f.txt", OID: blob}})
+	var parents []object.OID
+	for i := 0; i < n; i++ {
+		date := fmt.Sprintf("%d +0000", 1700000000-i*1000)
+		c := RawCommit(t, repo, tree, parents, fmt.Sprintf("commit %d", i), date)
+		want = append([]object.OID{c}, want...)
+		parents = []object.OID{c}
+	}
+	tip = want[0]
+	setHeadMain(t, repo, tip)
+	Git(t, repo, nil, "repack", "-adf", "-q")
+	return repo, tip, want
+}
+
 // NewUnborn builds a bare repository with no commits.
 func NewUnborn(t testing.TB) string {
 	t.Helper()

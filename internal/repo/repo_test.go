@@ -215,6 +215,23 @@ func TestLogEqualDatesKeepGitInsertionOrder(t *testing.T) {
 	}
 }
 
+func TestLogFetchesEnoughForSmallCount(t *testing.T) {
+	bare, tip, want := testutil.NewSkewChain(t, 20)
+	r, _ := repotest.Open(t, bare, "", "HEAD")
+	l, err := r.Log(ctx, tip, 5)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(l) != 5 {
+		t.Fatalf("log length %d, want 5: %v", len(l), l)
+	}
+	for i := range l {
+		if l[i].OID != want[i] {
+			t.Fatalf("log[%d] = %s, want %s", i, l[i].OID, want[i])
+		}
+	}
+}
+
 func TestResolveRevPrefersTagOverBranch(t *testing.T) {
 	f := testutil.NewFixture(t)
 	// git rev-parse prefers refs/tags/<name> over refs/heads/<name>.
