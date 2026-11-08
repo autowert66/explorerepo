@@ -33,6 +33,34 @@ explorerepo --repo torvalds/linux ls kernel
 explorerepo --repo torvalds/linux pull drivers/gpu/drm/i915 ./i915
 ```
 
+## Comparison with other approaches
+
+`git clone --depth 1` downloads every file at the tip: 291 MB and 33.7 s for torvalds/linux (see the demo
+above), for an agent that wanted one file.
+
+`git clone --filter=blob:none --no-checkout --depth 1` is the closest alternative, and it works: `git grep`
+fetches the missing blobs on demand. On torvalds/linux with git 2.56.0, one run each, the clone plus one
+`git grep sched_tick` took 23 s and left a 4 MB `.git` directory; explorerepo took 1.7 s for the same 24
+matches. The blobless clone fetches the tree of every directory up front, leaves a repository to delete
+afterwards, and requires the agent to know the flags. explorerepo fetches only the trees and blobs a command
+reads and caches them between calls.
+
+`raw.githubusercontent.com` and the GitHub REST API return one file or one directory listing per request, and
+neither can grep. GitHub limits unauthenticated REST requests to 60 per hour per IP address
+([GitHub docs](https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api)). Both are
+GitHub-only. In the [benchmark](docs/BENCHMARK.md), 89 of the 196 tool calls in the runs without explorerepo
+were raw file downloads. `git archive --remote` is rejected by GitHub over both HTTPS and ssh.
+
+Hosted MCP servers expose a fixed set of tools. GitMCP's README lists four: fetch documentation, search
+documentation, search code (through GitHub's code search), and fetch a URL. DeepWiki's MCP server returns
+pages of a generated wiki and answers questions about them (`read_wiki_structure`, `read_wiki_contents`,
+`ask_question`). Neither lists a tool for reading a line range of a file or listing a directory, and both
+need an MCP entry in the agent's configuration. explorerepo is a command the agent runs in its shell.
+
+gitingest turns a repository into one text digest (summary, tree, contents) to paste into a prompt.
+Sourcegraph's `src` is a client for a Sourcegraph instance and searches what that instance has indexed.
+explorerepo returns only what the script asks for, from any repository you can reach, at any `--rev`.
+
 ## Requirements
 
 - To install: Go 1.21 or newer. If your toolchain is older than the version in `go.mod`, `go install`
