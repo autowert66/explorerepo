@@ -266,6 +266,17 @@ func TestPeelLongTagChainByOID(t *testing.T) {
 	}
 }
 
+func TestPeelTagChainAtTheLimit(t *testing.T) {
+	// 100 tag objects is the documented maximum; the commit behind them must
+	// still be reachable.
+	bare, commit, deepest := testutil.NewTagChain(t, 100)
+	r, _ := repotest.Open(t, bare, "", "HEAD")
+	got, _, err := r.CommitTree(ctx, deepest.String())
+	if err != nil || got != commit {
+		t.Fatalf("tag chain = %s, %v; want %s", got, err, commit)
+	}
+}
+
 // severing wraps a transport and remembers the connections it opened.
 type severing struct {
 	inner transport.Transport

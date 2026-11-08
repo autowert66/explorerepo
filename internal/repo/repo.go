@@ -286,7 +286,8 @@ const maxTagDepth = 100
 
 // peel follows annotated tags until a commit is reached.
 func (r *Repo) peel(ctx context.Context, oid object.OID) (object.OID, *object.CommitInfo, error) {
-	for i := 0; i < maxTagDepth; i++ {
+	// One extra iteration reads the commit after maxTagDepth tag objects.
+	for i := 0; i <= maxTagDepth; i++ {
 		t, data, err := r.object(ctx, oid, "tree:0", 1)
 		if err != nil {
 			return oid, nil, err
