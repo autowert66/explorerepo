@@ -120,7 +120,15 @@ func (f *FS) child(dir *Node, e object.Entry) *Node {
 	return &Node{Path: p, Name: e.Name, Mode: e.Mode, OID: e.OID, mtime: f.mtime}
 }
 
-func split(p string) []string {
+// pathComp is one path component. fromSymlink marks components that came from
+// a symlink target: ".." escaping the root through a symlink must be refused,
+// while an ordinary absolute path clamps at the root like the kernel does.
+type pathComp struct {
+	name        string
+	fromSymlink bool
+}
+
+func splitPath(p string) []string {
 	var out []string
 	for _, c := range strings.Split(p, "/") {
 		if c != "" && c != "." {
@@ -131,19 +139,35 @@ func split(p string) []string {
 }
 
 // resolve walks p; followLast controls whether a trailing symlink is followed.
+// Components are evaluated left to right so ".." acts on the directory a
+// symlink resolved to, as it does in the kernel.
 func (f *FS) resolve(ctx context.Context, p string, followLast bool) (*Node, error) {
-	p = path.Clean("/" + p)
-	comps := split(p)
-	hops := 0
-restart:
+	var comps []pathComp
+	for _, c := range splitPath(p) {
+		comps = append(comps, pathComp{name: c})
+	}
+	stack := []*Node{f.root}
 	cur := f.root
-	for i := 0; i < len(comps); i++ {
-		comp := comps[i]
-		if comp == ".." { // only possible after symlink expansion
-			if cur == f.root {
-				return nil, ErrOutside
+	hops := 0
+	for len(comps) > 0 {
+		comp := comps[0]
+		comps = comps[1:]
+		if comp.name == ".." {
+			if cur.IsGitlink() {
+				return nil, &SubmoduleError{cur.OID}
 			}
-			return nil, ErrNotExist
+			if !cur.IsDir() {
+				return nil, ErrNotDir
+			}
+			if len(stack) == 1 {
+				if comp.fromSymlink {
+					return nil, ErrOutside
+				}
+				continue // "/.." is "/"
+			}
+			stack = stack[:len(stack)-1]
+			cur = stack[len(stack)-1]
+			continue
 		}
 		if cur.IsGitlink() {
 			return nil, &SubmoduleError{cur.OID}
@@ -155,12 +179,12 @@ restart:
 		if err != nil {
 			return nil, err
 		}
-		idx := sort.Search(len(ents), func(k int) bool { return ents[k].Name >= comp })
-		if idx == len(ents) || ents[idx].Name != comp {
+		idx := sort.Search(len(ents), func(k int) bool { return ents[k].Name >= comp.name })
+		if idx == len(ents) || ents[idx].Name != comp.name {
 			return nil, ErrNotExist
 		}
 		n := f.child(cur, ents[idx])
-		last := i == len(comps)-1
+		last := len(comps) == 0
 		if n.IsSymlink() && (!last || followLast) {
 			hops++
 			if hops > maxSymlinkHops {
@@ -171,23 +195,21 @@ restart:
 				return nil, err
 			}
 			ts := string(target)
+			if ts == "" {
+				return nil, ErrNotExist
+			}
 			if strings.HasPrefix(ts, "/") {
 				return nil, ErrOutside
 			}
-			prefix := comps[:i:i]
-			for _, tc := range split(ts) {
-				if tc == ".." {
-					if len(prefix) == 0 {
-						return nil, ErrOutside
-					}
-					prefix = prefix[:len(prefix)-1]
-				} else {
-					prefix = append(prefix[:len(prefix):len(prefix)], tc)
-				}
+			targets := splitPath(ts)
+			next := make([]pathComp, 0, len(targets)+len(comps))
+			for _, tc := range targets {
+				next = append(next, pathComp{name: tc, fromSymlink: true})
 			}
-			comps = append(append([]string{}, prefix...), comps[i+1:]...)
-			goto restart
+			comps = append(next, comps...)
+			continue
 		}
+		stack = append(stack, n)
 		cur = n
 	}
 	return cur, nil

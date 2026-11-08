@@ -397,9 +397,13 @@ func (r *runner) call(ctx context.Context, args []string) ([]string, error) {
 	}
 	abs := operands[0]
 	if !strings.HasPrefix(abs, "/") {
-		abs = path.Join(vpath(hc.Dir), abs)
+		dir := vpath(hc.Dir)
+		if dir == "/" {
+			abs = "/" + abs
+		} else {
+			abs = strings.TrimSuffix(dir, "/") + "/" + abs
+		}
 	}
-	abs = path.Clean(abs)
 	n, err := r.opt.FS.Stat(ctx, abs)
 	switch {
 	case err != nil:
@@ -411,9 +415,11 @@ func (r *runner) call(ctx context.Context, args []string) ([]string, error) {
 	case filepath.Separator != '/':
 		// The interpreter would join a rooted "/x" onto the current
 		// directory, as filepath.IsAbs wants a volume; hand it one.
-		return []string{"cd", filepath.VolumeName(hc.Dir) + filepath.FromSlash(abs)}, nil
+		return []string{"cd", filepath.VolumeName(hc.Dir) + filepath.FromSlash(n.Path)}, nil
 	default:
-		return args, nil
+		// Use the resolved path, so cd through a symlink and then ".."
+		// moves to the symlink target's parent, as the kernel does.
+		return []string{"cd", n.Path}, nil
 	}
 	return []string{"false"}, nil
 }
