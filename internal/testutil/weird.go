@@ -202,6 +202,26 @@ func NewTagChain(t testing.TB, n int) (repo string, commit, deepest object.OID) 
 	return repo, commit, deepest
 }
 
+// NewMergeOrder builds an octopus whose parents have identical dates. Git's
+// log shows the first parent before the later parents even though those are
+// its children, because the frontier is ordered by date with insertion order
+// breaking ties.
+func NewMergeOrder(t testing.TB) (repo string, want []object.OID) {
+	t.Helper()
+	repo = newRawRepo(t, "mergeorder")
+	blob := RawBlob(t, repo, []byte("merge\n"))
+	tree := RawTree(t, repo, []RawEntry{{Mode: "100644", Name: "f.txt", OID: blob}})
+	date := "1700000000 +0000"
+	root := RawCommit(t, repo, tree, nil, "root", date)
+	first := RawCommit(t, repo, tree, []object.OID{root}, "first", date)
+	second := RawCommit(t, repo, tree, []object.OID{first}, "second", date)
+	third := RawCommit(t, repo, tree, []object.OID{first}, "third", date)
+	head := RawCommit(t, repo, tree, []object.OID{first, second, third}, "head", date)
+	setHeadMain(t, repo, head)
+	Git(t, repo, nil, "repack", "-adf", "-q")
+	return repo, []object.OID{head, first, second, third, root}
+}
+
 // NewUnborn builds a bare repository with no commits.
 func NewUnborn(t testing.TB) string {
 	t.Helper()

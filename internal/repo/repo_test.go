@@ -198,6 +198,23 @@ func TestLogKeepsChildBeforeParentUnderClockSkew(t *testing.T) {
 	}
 }
 
+func TestLogEqualDatesKeepGitInsertionOrder(t *testing.T) {
+	bare, want := testutil.NewMergeOrder(t)
+	r, _ := repotest.Open(t, bare, "", "HEAD")
+	l, err := r.Log(ctx, want[0], 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(l) != len(want) {
+		t.Fatalf("log length %d, want %d: %v", len(l), len(want), l)
+	}
+	for i := range want {
+		if l[i].OID != want[i] {
+			t.Fatalf("log[%d] = %s, want %s (full %v)", i, l[i].OID, want[i], l)
+		}
+	}
+}
+
 func TestResolveRevPrefersTagOverBranch(t *testing.T) {
 	f := testutil.NewFixture(t)
 	// git rev-parse prefers refs/tags/<name> over refs/heads/<name>.
