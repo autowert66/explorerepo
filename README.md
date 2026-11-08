@@ -46,8 +46,9 @@ Built and tested on macOS (arm64) with Go 1.27.3 and git 2.56.0. The protocol pr
 
 ## Install
 
-`go install` places the binary in `$GOBIN` (default `$(go env GOPATH)/bin`); delete that file to
-uninstall. From a checkout, `make build` writes it to `bin/explorerepo` instead.
+`go install` writes the binary to `$GOBIN` (default `$(go env GOPATH)/bin`). If `explorerepo` is not
+found afterwards, add that directory to your `PATH`. To uninstall, delete the file. From a checkout,
+`make build` writes it to `bin/explorerepo` instead.
 
 ## First run
 
@@ -104,19 +105,19 @@ to one transport.
 OID; a tag wins over a branch with the same name, as in git. Abbreviated OIDs are rejected. The
 byte flags accept `K`, `M`, and `G` suffixes.
 
-Gists are ordinary git repositories, so everything below works on them unchanged. One thing to know:
-gists live on the separate host `gist.github.com`, so a `Host github.com` block in `~/.ssh/config`
-(keys, identity files) does not apply — add a matching `Host gist.github.com` stanza if you rely on
-one. A public gist is also readable over the anonymous HTTPS fallback; a secret gist needs an SSH
-key (or a token) that has access.
+Gists are ordinary git repositories, so everything below works on them unchanged. They live on the
+separate host `gist.github.com`, so a `Host github.com` block in `~/.ssh/config` (keys, identity
+files) does not apply. Add a matching `Host gist.github.com` stanza if you rely on one. A public gist
+is also readable over the anonymous HTTPS fallback; a secret gist needs an SSH key (or a token) that
+has access.
 
 There is no config file. `--repo` (or `EXPLOREREPO_REPO`) is the only required setting; everything
 else has the default shown above.
 
 ### Transports
 
-SSH is tried first. If a session cannot be established — no key, port 22 blocked, `ssh` not
-installed — explorerepo retries the same host over anonymous HTTPS (Git smart HTTP v2, still no
+SSH is tried first. If a session cannot be established (no key, port 22 blocked, `ssh` not
+installed), explorerepo retries the same host over anonymous HTTPS (Git smart HTTP v2, still no
 GitHub API). The object cache is shared between the two, so nothing is re-fetched once a key is set
 up. Anonymous HTTPS reads **public** repositories only; private ones need ssh. When the fallback is
 used, a hint is printed to stderr at most once per day (recorded in the cache dir); suppress it with
@@ -125,8 +126,8 @@ used, a hint is printed to stderr at most once per day (recorded in the cache di
 
 The exit status is the script's. Setup errors (auth, repository not found, bad revision) print
 `explorerepo: ...` and exit 128. A missing `--repo` exits 2 (usage error). An unknown command exits
-127, a timeout exits 124, an internal error exits 70, and an unsupported option exits 2. Output beyond `--max-output` is cut off with a notice on stderr;
-truncation is not an error.
+127, a timeout exits 124, and an internal error exits 70. Output beyond `--max-output` is cut off
+with a notice on stderr; truncation is not an error.
 
 ### pull
 
@@ -142,7 +143,8 @@ Fetched objects and refs are cached under `$EXPLOREREPO_CACHE`, or
 Objects are stored as git loose objects, so you can read them with
 `GIT_OBJECT_DIRECTORY=<cache>/objects git cat-file -p <oid>`. Refs are cached for 10 minutes so an
 agent sees a consistent snapshot across calls; `--refresh` bypasses the ref cache, and `--no-cache`
-keeps everything in memory. To reset, delete that directory; nothing else is written.
+keeps everything in memory. To reset, delete that directory. The only other thing written is the ssh
+control socket under `$TMPDIR/explorerepo-<uid>/`, which goes away when the master idles out.
 
 ## Development
 
