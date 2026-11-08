@@ -248,6 +248,12 @@ func (r *Repo) ResolveRev(ctx context.Context, rev string) (object.OID, error) {
 		}
 	}
 	if !ok {
+		if rev == "" || rev == "HEAD" {
+			if len(m) == 0 {
+				return object.OID{}, errors.New("repository has no commits (HEAD is unborn)")
+			}
+			return object.OID{}, errors.New("HEAD is unborn or missing; use --rev with a branch, tag or commit")
+		}
 		if object.IsHex(rev) && len(rev) >= 4 {
 			return object.OID{}, fmt.Errorf("cannot resolve abbreviated object id %q: use a full 40-character OID or a ref name", rev)
 		}
