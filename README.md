@@ -117,7 +117,8 @@ verdict: works over https (public repositories only); ssh failed, so private rep
 It exits 0 when at least one transport works and 128 otherwise. `--https` or `--no-https` limits it
 to one transport.
 `--rev` accepts a branch, tag (annotated tags are peeled), a `refs/...` name, or a full 40-hex
-OID; abbreviated OIDs are rejected. The byte flags accept `K`, `M`, and `G` suffixes.
+OID; a tag wins over a branch with the same name, as in git. Abbreviated OIDs are rejected. The
+byte flags accept `K`, `M`, and `G` suffixes.
 
 Gists are ordinary git repositories, so everything below works on them unchanged. One thing to know:
 gists live on the separate host `gist.github.com`, so a `Host github.com` block in `~/.ssh/config`
@@ -221,6 +222,7 @@ scripts/probe.sh ssh octocat/Hello-World.git
 ## Out of scope
 
 SHA-256 repositories; protocol v0 servers; authenticated HTTP (the anonymous HTTPS fallback reads
-public repositories only); Git LFS content (pointer files are shown as-is); path-limited `log`; a
-background daemon; FUSE/NFS mounts; writing or pushing anything; process substitution, background
+public repositories only); Git LFS content (pointer files are shown as-is); `refs/replace/*`
+replacements (git applies them locally, but the server sends the real objects); path-limited `log`;
+a background daemon; FUSE/NFS mounts; writing or pushing anything; process substitution, background
 jobs, and real program execution inside the shell.

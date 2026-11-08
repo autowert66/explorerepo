@@ -99,7 +99,8 @@ Access
 
 --rev REV
   A branch, tag (annotated tags are peeled), refs/... name, or full 40-hex commit OID; the
-  default is the remote HEAD. Abbreviated OIDs are rejected. 'refs' lists what exists.
+  default is the remote HEAD. A tag wins over a branch with the same name, like git.
+  Abbreviated OIDs are rejected. 'refs' lists what exists.
 `
 
 const helpFlags = `Options come before the command or -c script.
