@@ -308,7 +308,8 @@ func TestBadComponent(t *testing.T) {
 func TestBadComponentWindows(t *testing.T) {
 	for _, c := range []string{
 		`a\b`, "a:b", "CON", "con.txt", "NUL", "COM1", "LPT9", "trailing.", "trailing ",
-		"GIT~1", ".git~1", "git~2",
+		"GIT~1", ".git~1", "git~2", "COM¹", "LPT³", "CONIN$", "CONOUT$",
+		"GI7E2A~1", "giabcd~1",
 	} {
 		if badComponentFor(c, true) == nil {
 			t.Errorf("%q should be refused on Windows", c)

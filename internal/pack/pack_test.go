@@ -185,6 +185,26 @@ func TestPendingDeltaBudget(t *testing.T) {
 	}
 }
 
+// A delta result must also be capped by what is left of the total budget, not
+// only by the per-object limit.
+func TestDeltaLimit(t *testing.T) {
+	if got, err := deltaLimit(1<<20, 0, 0); err != nil || got != 1<<20 {
+		t.Fatalf("no total cap: %d %v", got, err)
+	}
+	if got, err := deltaLimit(1<<20, 200, 100); err != nil || got != 100 {
+		t.Fatalf("remaining cap: %d %v", got, err)
+	}
+	if _, err := deltaLimit(1<<20, 200, 200); err == nil {
+		t.Fatal("an exhausted budget should fail")
+	}
+	if _, err := deltaLimit(1<<20, 200, 250); err == nil {
+		t.Fatal("an over-budget total should fail")
+	}
+	if got, err := deltaLimit(0, 0, 0); err != nil || got != MaxDeltaResult {
+		t.Fatalf("zero per-object cap: %d %v", got, err)
+	}
+}
+
 func TestChecksumMismatch(t *testing.T) {
 	f := testutil.NewFixture(t)
 	data := packObjects(t, f, "--delta-base-offset")

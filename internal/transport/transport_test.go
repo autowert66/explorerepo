@@ -30,6 +30,32 @@ func TestReadCapsRejectsOversizedAdvertisement(t *testing.T) {
 	}
 }
 
+// Empty packets still cost their four-byte header, so a stream of them is
+// bounded; a delimiter ends the advertisement outright.
+func TestReadCapsEmptyPackets(t *testing.T) {
+	var flood bytes.Buffer
+	w := pktline.NewWriter(&flood)
+	for i := 0; i < 300_000; i++ {
+		if err := w.Data(nil); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := readCaps(bytes.NewReader(flood.Bytes())); err == nil {
+		t.Fatal("expected an empty-packet flood to hit the cap")
+	}
+
+	var delim bytes.Buffer
+	dw := pktline.NewWriter(&delim)
+	for i := 0; i < 1000; i++ {
+		if err := dw.Delim(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if buf, err := readCaps(bytes.NewReader(delim.Bytes())); err != nil || len(buf) != 4 {
+		t.Fatalf("delimiter should end the advertisement after its header: len=%d err=%v", len(buf), err)
+	}
+}
+
 // TestLocalNonBare guards against --strict, which refuses a normal checkout by
 // disabling the <dir>/.git lookup. The bare-only test fixtures never caught it.
 func TestLocalNonBare(t *testing.T) {
