@@ -5,6 +5,7 @@ import (
 	"compress/zlib"
 	"crypto/sha1"
 	"encoding/binary"
+	"errors"
 	"os/exec"
 	"strings"
 	"testing"
@@ -130,9 +131,10 @@ func TestParseRefDelta(t *testing.T) {
 func TestParseTotalBudget(t *testing.T) {
 	f := testutil.NewFixture(t)
 	data := packObjects(t, f, "--delta-base-offset")
-	if err := Parse(bytes.NewReader(data), Options{MaxTotalBytes: 1},
-		func(Raw) error { return nil }); err == nil {
-		t.Fatal("expected the total-data budget to reject the pack")
+	err := Parse(bytes.NewReader(data), Options{MaxTotalBytes: 1},
+		func(Raw) error { return nil })
+	if !errors.Is(err, ErrLimit) {
+		t.Fatalf("error = %v, want ErrLimit", err)
 	}
 }
 
@@ -180,7 +182,7 @@ func refDeltaPack(t *testing.T, body []byte) []byte {
 func TestPendingDeltaBudget(t *testing.T) {
 	data := refDeltaPack(t, bytes.Repeat([]byte{0}, 64))
 	err := Parse(bytes.NewReader(data), Options{MaxTotalBytes: 16}, func(Raw) error { return nil })
-	if err == nil || !strings.Contains(err.Error(), "exceeds") {
+	if err == nil || !strings.Contains(err.Error(), "exceeds") || !errors.Is(err, ErrLimit) {
 		t.Fatalf("error = %v, want a limit error", err)
 	}
 }

@@ -3,6 +3,9 @@ package protocol
 import (
 	"bytes"
 	"context"
+	"errors"
+	"fmt"
+	"math"
 	"strconv"
 	"strings"
 	"testing"
@@ -125,6 +128,36 @@ func TestDelimFloodInAdvertisement(t *testing.T) {
 	_, err := Dial(context.Background(), capsTransport{conn})
 	if err == nil || !strings.Contains(err.Error(), "oversized") {
 		t.Fatalf("err = %v, want an oversized-advertisement error", err)
+	}
+}
+
+// The decompressed ceiling is separate from the compressed budget, so a
+// legitimate near-budget fetch is not rejected at the wire size.
+func TestDecompressedLimit(t *testing.T) {
+	for _, tc := range []struct{ compressed, want int64 }{
+		{0, 0},
+		{1 << 20, minDecompressed},
+		{32 << 20, 128 << 20},
+		{256 << 20, 1 << 30},
+		{math.MaxInt64, math.MaxInt64},
+	} {
+		if got := decompressedLimit(tc.compressed); got != tc.want {
+			t.Errorf("decompressedLimit(%d) = %d, want %d", tc.compressed, got, tc.want)
+		}
+	}
+}
+
+// A pack limit error must read as a budget error, so the caller reports it
+// instead of redialing the session.
+func TestBudgetErr(t *testing.T) {
+	limit := fmt.Errorf("%w: too big", pack.ErrLimit)
+	got := budgetErr(limit)
+	if !errors.Is(got, ErrBudget) || !errors.Is(got, pack.ErrLimit) {
+		t.Fatalf("budgetErr(%v) = %v, want ErrBudget and ErrLimit", limit, got)
+	}
+	plain := errors.New("boom")
+	if budgetErr(plain) != plain {
+		t.Fatal("a non-limit error should pass through unchanged")
 	}
 }
 

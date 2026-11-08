@@ -13,6 +13,10 @@ import (
 	"github.com/autowert66/explorerepo/internal/object"
 )
 
+// ErrLimit marks a pack rejected for exceeding a caller-imposed size limit, so
+// a caller can tell a budget rejection from malformed data.
+var ErrLimit = errors.New("pack: size limit exceeded")
+
 // Raw is a fully resolved object.
 type Raw struct {
 	OID  object.OID
@@ -119,7 +123,7 @@ func deltaLimit(maxObject, maxTotal, total int64) (uint64, error) {
 	if maxTotal > 0 {
 		remaining := maxTotal - total
 		if remaining <= 0 {
-			return 0, fmt.Errorf("pack: object data exceeds %d-byte limit", maxTotal)
+			return 0, fmt.Errorf("%w: object data exceeds %d-byte limit", ErrLimit, maxTotal)
 		}
 		if uint64(remaining) < max {
 			max = uint64(remaining)
@@ -161,7 +165,7 @@ func Parse(src io.Reader, opt Options, sink func(Raw) error) error {
 		}
 		total += int64(n)
 		if total > opt.MaxTotalBytes {
-			return fmt.Errorf("pack: object data exceeds %d-byte limit", opt.MaxTotalBytes)
+			return fmt.Errorf("%w: object data exceeds %d-byte limit", ErrLimit, opt.MaxTotalBytes)
 		}
 		return nil
 	}
@@ -241,10 +245,10 @@ func Parse(src io.Reader, opt Options, sink func(Raw) error) error {
 			}
 		}
 		if size > uint64(opt.MaxObjectSize) {
-			return fmt.Errorf("pack: object of %d bytes exceeds limit", size)
+			return fmt.Errorf("%w: object of %d bytes", ErrLimit, size)
 		}
 		if opt.MaxTotalBytes > 0 && int64(size) > opt.MaxTotalBytes-total {
-			return fmt.Errorf("pack: object data exceeds %d-byte limit", opt.MaxTotalBytes)
+			return fmt.Errorf("%w: object data exceeds %d-byte limit", ErrLimit, opt.MaxTotalBytes)
 		}
 		var baseOff int64
 		var baseOID object.OID

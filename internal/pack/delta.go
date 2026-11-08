@@ -34,7 +34,7 @@ func ApplyDeltaLimited(base, delta []byte, max uint64) ([]byte, error) {
 		max = MaxDeltaResult
 	}
 	if resSize > max {
-		return nil, fmt.Errorf("delta: result of %d bytes exceeds limit of %d", resSize, max)
+		return nil, fmt.Errorf("%w: delta result of %d bytes exceeds limit of %d", ErrLimit, resSize, max)
 	}
 	// The declared size is attacker-controlled, so do not allocate it up
 	// front; grow toward it instead.

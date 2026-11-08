@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"strconv"
 	"strings"
 	"sync"
@@ -41,7 +42,41 @@ const (
 	maxAdvertisementBytes = 1 << 20
 	// maxListBytes bounds the bytes of a ref listing or object-info response.
 	maxListBytes = 8 << 20
+	// maxDecompressFactor bounds how far the decompressed side may exceed the
+	// compressed fetch budget. Source and text compress a few times over; this
+	// leaves headroom for a legitimate near-budget fetch while still bounding
+	// a decompression bomb.
+	maxDecompressFactor = 4
+	// minDecompressed keeps a small --max-fetch from rejecting ordinary objects.
+	minDecompressed = 64 << 20
 )
+
+// decompressedLimit is the largest decompressed size a fetch may retain for a
+// compressed budget. It is a separate ceiling from MaxBytes: the wire budget
+// counts compressed bytes, so a highly compressible but legitimate object must
+// not be rejected at the compressed budget.
+func decompressedLimit(compressed int64) int64 {
+	if compressed <= 0 {
+		return 0
+	}
+	if compressed > math.MaxInt64/maxDecompressFactor {
+		return math.MaxInt64
+	}
+	limit := compressed * maxDecompressFactor
+	if limit < minDecompressed {
+		limit = minDecompressed
+	}
+	return limit
+}
+
+// budgetErr classifies a pack size-limit failure as a budget error, so callers
+// report it like any other exhausted fetch budget instead of redialing.
+func budgetErr(err error) error {
+	if errors.Is(err, pack.ErrLimit) {
+		return fmt.Errorf("%w: %w", ErrBudget, err)
+	}
+	return err
+}
 
 type Client struct {
 	conn   transport.Conn
@@ -296,9 +331,11 @@ func (c *Client) Fetch(ctx context.Context, req FetchReq, sink func(pack.Raw) er
 		popt := pack.Options{Base: req.Base}
 		if req.MaxBytes > 0 {
 			// The byte budget counts compressed pack bytes; cap the
-			// decompressed side too, per object and in total.
-			popt.MaxObjectSize = req.MaxBytes
-			popt.MaxTotalBytes = req.MaxBytes
+			// decompressed side separately so a bomb cannot expand past it
+			// while a legitimate near-budget fetch still fits.
+			limit := decompressedLimit(req.MaxBytes)
+			popt.MaxObjectSize = limit
+			popt.MaxTotalBytes = limit
 		}
 		go func() {
 			err := pack.Parse(pr, popt, func(r pack.Raw) error {
@@ -350,7 +387,7 @@ func (c *Client) Fetch(ctx context.Context, req FetchReq, sink func(pack.Raw) er
 					if perr == nil {
 						perr = err
 					}
-					return res, perr
+					return res, budgetErr(perr)
 				}
 			case 2:
 				c.logf("remote: %s", bytes.TrimSpace(p[1:]))
@@ -383,7 +420,7 @@ func (c *Client) Fetch(ctx context.Context, req FetchReq, sink func(pack.Raw) er
 	pw.Close()
 	if err := <-parseErr; err != nil {
 		c.broken.Store(true)
-		return res, err
+		return res, budgetErr(err)
 	}
 	c.logf("fetched %d objects, %d pack bytes", res.Objects, res.PackBytes)
 	return res, nil
