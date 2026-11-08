@@ -1,15 +1,34 @@
 package transport
 
 import (
+	"bytes"
 	"context"
 	"encoding/hex"
 	"io"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 
+	"github.com/autowert66/explorerepo/internal/pktline"
 	"github.com/autowert66/explorerepo/internal/testutil"
 )
+
+// The fallback probe buffers the whole advertisement, so it needs a bound too.
+func TestReadCapsRejectsOversizedAdvertisement(t *testing.T) {
+	var buf bytes.Buffer
+	w := pktline.NewWriter(&buf)
+	for i := 0; i < 40_000; i++ {
+		if err := w.Line("k" + strconv.Itoa(i) + "=" + strings.Repeat("x", 100)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	_ = w.Flush()
+
+	if _, err := readCaps(bytes.NewReader(buf.Bytes())); err == nil {
+		t.Fatal("expected an error for an oversized capability advertisement")
+	}
+}
 
 // TestLocalNonBare guards against --strict, which refuses a normal checkout by
 // disabling the <dir>/.git lookup. The bare-only test fixtures never caught it.
