@@ -25,6 +25,9 @@ type Options struct {
 	Base func(object.OID) (object.Type, []byte, bool)
 	// MaxObjectSize rejects objects whose declared size exceeds it (0 = 1 GiB).
 	MaxObjectSize int64
+	// MaxTotalBytes rejects a pack once the resolved object data retained so far
+	// exceeds it (0 = unlimited). It bounds decompression bombs.
+	MaxTotalBytes int64
 }
 
 const (
@@ -129,8 +132,15 @@ func Parse(src io.Reader, opt Options, sink func(Raw) error) error {
 	byOID := map[object.OID]int64{}
 	pending := map[object.OID][]pendingRef{} // keyed by base oid
 	var zr io.ReadCloser
+	var total int64
 
 	emit := func(off int64, t object.Type, data []byte) error {
+		if opt.MaxTotalBytes > 0 {
+			total += int64(len(data))
+			if total > opt.MaxTotalBytes {
+				return fmt.Errorf("pack: object data exceeds %d-byte limit", opt.MaxTotalBytes)
+			}
+		}
 		oid := object.Hash(t, data)
 		byOffset[off] = stored{t, data}
 		byOID[oid] = off
@@ -150,7 +160,7 @@ func Parse(src io.Reader, opt Options, sink func(Raw) error) error {
 			bo := byOID[base]
 			bs := byOffset[bo]
 			for _, p := range waiting {
-				res, err := ApplyDelta(bs.data, p.delta)
+				res, err := ApplyDeltaLimited(bs.data, p.delta, uint64(opt.MaxObjectSize))
 				if err != nil {
 					return err
 				}
@@ -253,7 +263,7 @@ func Parse(src io.Reader, opt Options, sink func(Raw) error) error {
 			if !ok {
 				return errors.New("pack: ofs-delta base not found")
 			}
-			res, err := ApplyDelta(base.data, data)
+			res, err := ApplyDeltaLimited(base.data, data, uint64(opt.MaxObjectSize))
 			if err != nil {
 				return fmt.Errorf("pack: %w", err)
 			}
@@ -263,7 +273,7 @@ func Parse(src io.Reader, opt Options, sink func(Raw) error) error {
 		case typRefDelta:
 			if bo, ok := byOID[baseOID]; ok {
 				base := byOffset[bo]
-				res, err := ApplyDelta(base.data, data)
+				res, err := ApplyDeltaLimited(base.data, data, uint64(opt.MaxObjectSize))
 				if err != nil {
 					return fmt.Errorf("pack: %w", err)
 				}
@@ -272,7 +282,7 @@ func Parse(src io.Reader, opt Options, sink func(Raw) error) error {
 				}
 			} else if opt.Base != nil {
 				if t, bd, ok := opt.Base(baseOID); ok {
-					res, err := ApplyDelta(bd, data)
+					res, err := ApplyDeltaLimited(bd, data, uint64(opt.MaxObjectSize))
 					if err != nil {
 						return fmt.Errorf("pack: %w", err)
 					}
@@ -298,7 +308,7 @@ func Parse(src io.Reader, opt Options, sink func(Raw) error) error {
 			return fmt.Errorf("pack: unresolved delta base %s", base)
 		}
 		for _, p := range list {
-			res, err := ApplyDelta(bd, p.delta)
+			res, err := ApplyDeltaLimited(bd, p.delta, uint64(opt.MaxObjectSize))
 			if err != nil {
 				return fmt.Errorf("pack: %w", err)
 			}

@@ -1,9 +1,22 @@
 package pack
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
+
+// MaxDeltaResult is the default cap on one delta's result size.
+const MaxDeltaResult uint64 = 1 << 30
 
 // ApplyDelta applies a git delta to base.
 func ApplyDelta(base, delta []byte) ([]byte, error) {
+	return ApplyDeltaLimited(base, delta, MaxDeltaResult)
+}
+
+// ApplyDeltaLimited is ApplyDelta with an explicit cap on the result size. The
+// declared size is checked before any allocation and the running size after
+// every instruction, so a malformed delta cannot expand without bound.
+func ApplyDeltaLimited(base, delta []byte, max uint64) ([]byte, error) {
 	baseSize, n := varint(delta)
 	if n == 0 {
 		return nil, errors.New("delta: truncated header")
@@ -17,10 +30,19 @@ func ApplyDelta(base, delta []byte) ([]byte, error) {
 	if baseSize != uint64(len(base)) {
 		return nil, errors.New("delta: base size mismatch")
 	}
-	if resSize > 1<<31 {
-		return nil, errors.New("delta: result too large")
+	if max == 0 {
+		max = MaxDeltaResult
 	}
-	out := make([]byte, 0, resSize)
+	if resSize > max {
+		return nil, fmt.Errorf("delta: result of %d bytes exceeds limit of %d", resSize, max)
+	}
+	// The declared size is attacker-controlled, so do not allocate it up
+	// front; grow toward it instead.
+	hint := resSize
+	if hint > 64<<10 {
+		hint = 64 << 10
+	}
+	out := make([]byte, 0, hint)
 	for len(delta) > 0 {
 		op := delta[0]
 		delta = delta[1:]
@@ -50,11 +72,17 @@ func ApplyDelta(base, delta []byte) ([]byte, error) {
 			if off+size > uint64(len(base)) {
 				return nil, errors.New("delta: copy out of range")
 			}
+			if uint64(len(out))+size > resSize {
+				return nil, errors.New("delta: result exceeds declared size")
+			}
 			out = append(out, base[off:off+size]...)
 		} else if op != 0 {
 			n := int(op)
 			if n > len(delta) {
 				return nil, errors.New("delta: truncated insert")
+			}
+			if uint64(len(out))+uint64(n) > resSize {
+				return nil, errors.New("delta: result exceeds declared size")
 			}
 			out = append(out, delta[:n]...)
 			delta = delta[n:]

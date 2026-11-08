@@ -274,8 +274,15 @@ func (c *Client) Fetch(ctx context.Context, req FetchReq, sink func(pack.Raw) er
 	startParser := func() {
 		pr, w := io.Pipe()
 		pw = w
+		popt := pack.Options{Base: req.Base}
+		if req.MaxBytes > 0 {
+			// The byte budget counts compressed pack bytes; cap the
+			// decompressed side too, per object and in total.
+			popt.MaxObjectSize = req.MaxBytes
+			popt.MaxTotalBytes = req.MaxBytes
+		}
 		go func() {
-			err := pack.Parse(pr, pack.Options{Base: req.Base}, func(r pack.Raw) error {
+			err := pack.Parse(pr, popt, func(r pack.Raw) error {
 				res.Objects++
 				return sink(r)
 			})
