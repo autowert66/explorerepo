@@ -6,6 +6,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/autowert66/explorerepo/internal/object"
@@ -56,7 +57,11 @@ func badComponent(c string) error {
 		return fmt.Errorf("refusing to write path component %q", c)
 	case strings.EqualFold(c, ".git"):
 		return fmt.Errorf("refusing to write %q entry", c)
-	case strings.ContainsAny(c, "/\\\x00"):
+	case strings.ContainsAny(c, "/\x00"):
+		return fmt.Errorf("refusing to write path component %q", c)
+	case runtime.GOOS == "windows" && strings.ContainsRune(c, '\\'):
+		// A backslash is a legal POSIX filename byte but a path separator on
+		// Windows, where writing it would escape the destination.
 		return fmt.Errorf("refusing to write path component %q", c)
 	}
 	return nil
