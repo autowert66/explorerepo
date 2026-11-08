@@ -208,7 +208,8 @@ func lookup(m map[string]protocol.Ref, rev string) (protocol.Ref, bool) {
 	case strings.HasPrefix(rev, "refs/"):
 		cands = []string{rev}
 	default:
-		cands = []string{"refs/heads/" + rev, "refs/tags/" + rev}
+		// Match git rev-parse: a tag wins over a branch with the same name.
+		cands = []string{"refs/tags/" + rev, "refs/heads/" + rev}
 	}
 	for _, c := range cands {
 		if ref, ok := m[c]; ok {
