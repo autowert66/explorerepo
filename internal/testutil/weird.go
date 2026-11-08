@@ -222,6 +222,26 @@ func NewMergeOrder(t testing.TB) (repo string, want []object.OID) {
 	return repo, []object.OID{head, first, second, third, root}
 }
 
+// NewDotLinks builds symlinks whose targets are "." and "sub/..".
+func NewDotLinks(t testing.TB) string {
+	t.Helper()
+	repo := newRawRepo(t, "dotlinks")
+	readme := RawBlob(t, repo, []byte("root\n"))
+	content := RawBlob(t, repo, []byte("content\n"))
+	dot := RawBlob(t, repo, []byte("."))
+	updown := RawBlob(t, repo, []byte("sub/.."))
+	sub := RawTree(t, repo, []RawEntry{{Mode: "100644", Name: "file.txt", OID: content}})
+	tree := RawTree(t, repo, []RawEntry{
+		{Mode: "100644", Name: "README.md", OID: readme},
+		{Mode: "120000", Name: "dot", OID: dot},
+		{Mode: "120000", Name: "updown", OID: updown},
+		{Mode: "40000", Name: "sub", OID: sub},
+	})
+	setHeadMain(t, repo, RawCommit(t, repo, tree, nil, "dot links", "1700000000 +0000"))
+	Git(t, repo, nil, "repack", "-adf", "-q")
+	return repo
+}
+
 // NewUnborn builds a bare repository with no commits.
 func NewUnborn(t testing.TB) string {
 	t.Helper()

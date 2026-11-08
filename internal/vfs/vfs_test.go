@@ -126,6 +126,20 @@ func TestSymlinkDotDot(t *testing.T) {
 	}
 }
 
+func TestSymlinkDotTargets(t *testing.T) {
+	bare := testutil.NewDotLinks(t)
+	r, _ := repotest.Open(t, bare, "", "HEAD")
+	v := vfs.New(r)
+	for _, p := range []string{"/dot/README.md", "/dot/../README.md", "/updown/README.md", "/updown/../README.md"} {
+		if b, err := v.ReadFile(ctx, p); err != nil || string(b) != "root\n" {
+			t.Errorf("%s: %q %v", p, b, err)
+		}
+	}
+	if b, err := v.ReadFile(ctx, "/updown/sub/file.txt"); err != nil || string(b) != "content\n" {
+		t.Errorf("updown/sub/file.txt: %q %v", b, err)
+	}
+}
+
 func TestDuplicateTreeEntryIsFirst(t *testing.T) {
 	bare := testutil.NewDuplicate(t)
 	r, _ := repotest.Open(t, bare, "", "HEAD")
