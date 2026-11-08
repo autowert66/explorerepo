@@ -263,6 +263,28 @@ func TestPrintf(t *testing.T) {
 	}
 }
 
+func TestPrintfWidthLimit(t *testing.T) {
+	for _, args := range [][]string{
+		{"%2097153s\n", "x"},
+		{"%*s\n", "2097153", "x"},
+		{"%2097153d\n", "1"},
+	} {
+		var out, errb bytes.Buffer
+		env := &Env{Stdin: strings.NewReader(""), Stdout: NewOut(&out), Stderr: &errb, Cfg: &Config{}}
+		code := printfCmd(context.Background(), env, args)
+		env.Stdout.Flush()
+		if code == 0 {
+			t.Errorf("printf %v accepted an oversized field width", args)
+		}
+		if !strings.Contains(errb.String(), "too large") {
+			t.Errorf("printf %v stderr = %q", args, errb.String())
+		}
+		if out.Len() > 64 {
+			t.Errorf("printf %v wrote %d bytes before rejecting the width", args, out.Len())
+		}
+	}
+}
+
 func TestBadComponent(t *testing.T) {
 	for _, c := range []string{"", ".", "..", ".git", ".GIT", ".Git", "a/b", "a\x00b"} {
 		if badComponent(c) == nil {
