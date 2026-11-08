@@ -30,7 +30,7 @@ THEMES = {
         fg="#e6edf3", dim="#7d8590", ghost="#3d444d",
         green="#3fb950", amber="#e3b341", blue="#79c0ff", purple="#d2a8ff", orange="#f0883e",
         code="#c9d1d9", comment="#8b949e", hit="#ff7b72",
-        track="#161b22", panel="#0d1117", panel_op=".82", footer="#6e7681",
+        track="#161b22", panel="#0d1117", panel_op=".82",
         glow=True,
     ),
     "light": dict(
@@ -45,7 +45,7 @@ THEMES = {
         fg="#1f2328", dim="#656d76", ghost="#c3ccd5",
         green="#1a7f37", amber="#9a6700", blue="#0969da", purple="#8250df", orange="#bc4c00",
         code="#1f2328", comment="#6e7781", hit="#cf222e",
-        track="#eaeef2", panel="#f6f8fa", panel_op=".9", footer="#6e7781",
+        track="#eaeef2", panel="#f6f8fa", panel_op=".9",
         glow=False,
     ),
 }
@@ -108,7 +108,7 @@ def build(theme):
                      (T, "transform:translateX(0);opacity:1;", None)], "opacity:0;")
 
     out = []
-    W, H = 960, 628
+    W, H = 960, 568
     o = out.append
 
     # ---------- palette
@@ -121,15 +121,12 @@ def build(theme):
 <linearGradient id="obar" x1="0" x2="1"><stop offset="0" stop-color="{P["obar_a"]}"/><stop offset="1" stop-color="{P["obar_b"]}"/></linearGradient>
 <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%"><feDropShadow dx="0" dy="{P["shadow_dy"]}" stdDeviation="{P["shadow_std"]}" flood-color="{P["shadow"]}" flood-opacity="{P["shadow_op"]}"/></filter>
 <filter id="glow" x="-50%" y="-100%" width="200%" height="300%"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-<clipPath id="termclip"><rect x="32" y="108" width="572" height="296"/></clipPath>
+<clipPath id="termclip"><rect x="32" y="50" width="572" height="310"/></clipPath>
 </defs>
 <rect width="{W}" height="{H}" rx="18" fill="url(#bg)"/>
 <rect width="{W}" height="{H}" rx="18" fill="url(#grid)"/>
 <rect width="{W}" height="{H}" rx="18" fill="url(#g1)"/>
 <rect width="{W}" height="{H}" rx="18" fill="url(#g2)"/>
-<text x="34" y="50" font-family="{SANS}" font-size="27" font-weight="700" fill="{FG}">explore<tspan fill="{GREEN}">repo</tspan></text>
-<text x="926" y="40" text-anchor="end" font-family="{SANS}" font-size="14.5" fill="{FG}">an agent reads <tspan font-family="{MONO}" fill="{BLUE}">torvalds/linux</tspan> without cloning it</text>
-<text x="926" y="60" text-anchor="end" font-family="{SANS}" font-size="12.5" fill="{DIM}">only the trees and files the script touches cross the wire</text>
 ''')
 
     def window(x, y, w, h, title):
@@ -140,8 +137,8 @@ def build(theme):
 <text x="{x + w / 2}" y="{y + 19.5}" text-anchor="middle" font-family="{SANS}" font-size="12" fill="{DIM}">{escape(title)}</text>''')
 
     # ---------- terminal
-    window(32, 78, 572, 328, "agent — zsh")
-    X0, Y0, LH = 50, 132, 18.6
+    window(32, 20, 572, 340, "agent — zsh")
+    X0, Y0, LH = 50, 74, 19.6
     t_type = [(0.7, 2.0), (2.25, 3.95), (4.15, 5.55)]
     ENTER = 5.75
     FETCH_DONE = ENTER + 2.0  # measured: 1.99 s wall time for this script
@@ -198,8 +195,8 @@ def build(theme):
     o("</g>")
 
     # ---------- fetched-tree panel
-    PX, PY, PW = 624, 78, 304
-    window(PX, PY, PW, 328, "what crossed the wire")
+    PX, PY, PW = 624, 20, 304
+    window(PX, PY, PW, 340, "what crossed the wire")
     rows = [  # (indent, label, kind, time)   kind: root/dir/file/ghost/more
         (0, "torvalds/linux", "root", ENTER + 0.15),
         (1, "Documentation/", "ghost", 0),
@@ -218,7 +215,7 @@ def build(theme):
         (1, "net/", "ghost", 0),
         (1, "… 34 more", "ghost", 0),
     ]
-    TX, TY, TLH = PX + 20, PY + 52, 15.6
+    TX, TY, TLH = PX + 20, PY + 52, 16.8
     o(f'<g font-family="{MONO}" font-size="12.5">')
     # connector lines
     for i, (ind, label, kind, t) in enumerate(rows):
@@ -243,11 +240,11 @@ def build(theme):
             o(f'<text x="{x}" y="{y:.1f}" font-weight="700" fill="{GREEN}"{GLOW} class="{flash(t, GHOST, GREEN, GREEN)}">{escape(label)}</text>')
             o(f'<text x="{PX + PW - 26}" y="{y:.1f}" text-anchor="end" font-size="11" fill="{GREEN}" class="{appear(FETCH_DONE, 0.3)}">:5829</text>')
     o("</g>")
-    o(f'<text x="{PX + PW / 2}" y="{PY + 314}" text-anchor="middle" font-family="{SANS}" font-size="12" fill="{DIM}" class="{appear(FETCH_DONE + 0.2)}">'
+    o(f'<text x="{PX + PW / 2}" y="{PY + 326}" text-anchor="middle" font-family="{SANS}" font-size="12" fill="{DIM}" class="{appear(FETCH_DONE + 0.2)}">'
       f'<tspan fill="{FG}" font-weight="600">5</tspan> requests · <tspan fill="{FG}" font-weight="600">54</tspan> objects · <tspan fill="{GREEN}" font-weight="600">653 KB</tspan></text>')
 
     # ---------- comparison panel
-    BX, BY, BW, BH = 32, 424, 896, 176
+    BX, BY, BW, BH = 32, 376, 896, 176
     o(f'<rect x="{BX}" y="{BY}" width="{BW}" height="{BH}" rx="11" fill="{P["panel"]}" fill-opacity="{P["panel_op"]}" stroke="{P["stroke"]}"/>')
     TRK_X, TRK_W = 232, 440
     CLONE_END = ENTER + 9.5
@@ -277,8 +274,6 @@ def build(theme):
         cls = appear(CLONE_END + 0.3, 0.4)
         o(f'<g class="{cls}"><text x="{CX}" y="{cy}" text-anchor="middle" font-family="{SANS}" font-size="32" font-weight="800" fill="{GREEN}"{GLOW}>{big}</text>'
           f'<text x="{CX}" y="{cy + 18}" text-anchor="middle" font-family="{SANS}" font-size="12.5" fill="{FG}">{small}</text></g>')
-    o(f'<text x="{W / 2}" y="{H - 10}" text-anchor="middle" font-family="{SANS}" font-size="11" fill="{P["footer"]}">'
-      f'measured 2026-11-06 on a cold cache: find and read sched_tick in torvalds/linux</text>')
 
     style = "<style>" + "".join(kf_rules) + "".join(css_rules) + \
         "text{white-space:pre}@media (prefers-reduced-motion:reduce){*{animation:none!important}}</style>"

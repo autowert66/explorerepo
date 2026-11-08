@@ -8,9 +8,14 @@
 </p>
 
 explorerepo lets an AI agent read or search a remote git repository without cloning it and without
-the GitHub API. Install one Go binary and add a line to your global `AGENTS.md` or `CLAUDE.md`,
-and an agent that needs a single file stops cloning the whole repo. It runs `ls`, `cat`, `head`,
-`tail`, `grep`, and `find` against the remote tree, over SSH or plain HTTPS.
+the GitHub API. It speaks **Git protocol v2** over SSH or anonymous HTTPS and uses **filtered fetch**
+(`tree:0`, `blob:none`), the same server-side filtering as `git clone --filter`, so the server sends
+only the commit, trees and blobs a command touches. Requests go to the repository's own
+`git-upload-pack`, which GitHub and gists, GitLab, Bitbucket, Codeberg and googlesource.com serve.
+
+Install one Go binary and add a line to your global `AGENTS.md` or `CLAUDE.md`, and an agent that
+needs a single file stops cloning the whole repo. It runs `ls`, `cat`, `head`, `tail`, `sed`,
+`grep`, `rg`, `find` and more against the remote tree, over SSH or plain HTTPS.
 
 ```sh
 go install github.com/autowert66/explorerepo/cmd/explorerepo@latest
@@ -24,14 +29,12 @@ To read or search the source of any remote git repo (a library, a dependency, a 
 
 `explorerepo help agents` prints the same line, so `explorerepo help agents >> ~/.claude/CLAUDE.md` works too.
 
-A benchmark of opencode with DeepSeek V4.1 Flash covers 15 questions about real repositories, from ripgrep and fzf
-to the Linux kernel, Android, Chromium and Kubernetes. Each question ran three times per variant in a fresh container
-with web search and webfetch available. With explorerepo installed and the line above in place, agents made 52 to 57%
-fewer tool calls, used 53 to 63% fewer uncached input tokens and answered 45 to 66% faster, depending on the question
-set, and every answer was correct either way. The gain varies by question: Kubernetes's default eviction thresholds
-took 3.3 tool calls instead of 13.7, and Chromium's renderer-process limit took 7.3 instead of 9.0. It is one model
-and one agent harness. [`docs/BENCHMARK.md`](docs/BENCHMARK.md) has the tables, per-run tool breakdowns and limits,
-and the harness in `bench/` reruns it.
+A benchmark with opencode and DeepSeek V4.1 Flash covers 15 questions about real repositories, from
+ripgrep to the Linux kernel, Android, Chromium and Kubernetes, three runs each in a fresh container.
+With explorerepo installed, agents made **52–57% fewer tool calls**, used **53–63% fewer uncached
+input tokens** and answered **45–66% faster**, and every answer was correct either way: Kubernetes's
+default eviction thresholds took 3.3 tool calls instead of 13.7. One model and one agent harness;
+[`docs/BENCHMARK.md`](docs/BENCHMARK.md) has the tables and limits, and `bench/` reruns it.
 
 Then agents work in place:
 
