@@ -142,7 +142,9 @@ func (c *procConn) Close() error {
 type Local struct{ Path string }
 
 func (l Local) Open(ctx context.Context) (Conn, error) {
-	cmd := exec.Command("git", "upload-pack", "--strict", l.Path)
+	// No --strict: it disables the <dir>/.git lookup and would refuse a normal
+	// (non-bare) checkout. Without it git still rejects a path that is not a repo.
+	cmd := exec.Command("git", "upload-pack", l.Path)
 	cmd.Env = append(os.Environ(), "GIT_PROTOCOL=version=2")
 	return startProc(cmd, nil)
 }

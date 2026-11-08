@@ -136,6 +136,10 @@ func NewFixture(t testing.TB) *Fixture {
 	Git(t, f.Bare, nil, "config", "uploadpack.allowFilter", "true")
 	Git(t, f.Bare, nil, "config", "uploadpack.allowAnySHA1InWant", "true")
 	Git(t, f.Bare, nil, "repack", "-adf", "-q")
+	// Let the non-bare work tree also serve filtered fetches, so tests can use
+	// it directly as a --repo (a normal checkout, not just the bare clone).
+	Git(t, work, nil, "config", "uploadpack.allowFilter", "true")
+	Git(t, work, nil, "config", "uploadpack.allowAnySHA1InWant", "true")
 	return f
 }
 

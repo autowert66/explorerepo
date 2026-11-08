@@ -1,10 +1,46 @@
 package transport
 
 import (
+	"context"
+	"encoding/hex"
+	"io"
 	"runtime"
 	"strings"
 	"testing"
+
+	"github.com/autowert66/explorerepo/internal/testutil"
 )
+
+// TestLocalNonBare guards against --strict, which refuses a normal checkout by
+// disabling the <dir>/.git lookup. The bare-only test fixtures never caught it.
+func TestLocalNonBare(t *testing.T) {
+	f := testutil.NewFixture(t)
+	conn, err := Local{Path: f.Work}.Open(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	// First pkt-line of the v2 advertisement is "version 2\n".
+	var lenBuf [4]byte
+	if _, err := io.ReadFull(conn, lenBuf[:]); err != nil {
+		t.Fatalf("reading length: %v (stderr: %s)", err, conn.Stderr())
+	}
+	n, err := hex.DecodeString(string(lenBuf[:]))
+	if err != nil || len(n) != 2 {
+		t.Fatalf("bad pkt length %q", lenBuf[:])
+	}
+	size := int(n[0])<<8 | int(n[1])
+	if size < 4 || size > 65520 {
+		t.Fatalf("bad pkt size %d", size)
+	}
+	payload := make([]byte, size-4)
+	if _, err := io.ReadFull(conn, payload); err != nil {
+		t.Fatalf("reading payload: %v (stderr: %s)", err, conn.Stderr())
+	}
+	if !strings.HasPrefix(string(payload), "version 2") {
+		t.Fatalf("first pkt = %q, want version 2 (stderr: %s)", payload, conn.Stderr())
+	}
+}
 
 func TestSSHArgs(t *testing.T) {
 	if runtime.GOOS == "windows" {

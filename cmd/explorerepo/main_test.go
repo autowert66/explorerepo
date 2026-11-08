@@ -59,6 +59,17 @@ func TestModes(t *testing.T) {
 	}
 }
 
+// TestLocalNonBareRepo runs --repo against a normal checkout (not the bare
+// clone). The local transport used to pass --strict, which refused any
+// repository that was not itself a git directory.
+func TestLocalNonBareRepo(t *testing.T) {
+	f := testutil.NewFixture(t)
+	out, errOut, code := exec(t, "", "--repo", f.Work, "-c", "cat a/a.txt")
+	if out != "alpha v2\n" || code != 0 {
+		t.Fatalf("--repo <non-bare>: %q (code %d) stderr %q", out, code, errOut)
+	}
+}
+
 func TestExitCodes(t *testing.T) {
 	f := testutil.NewFixture(t)
 	cases := []struct {
