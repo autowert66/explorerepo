@@ -186,7 +186,7 @@ SEARCH    grep [-rRnivwxlLcohHFEGPIaqs] [-m N] [-A|-B|-C N] [-e PAT]... PATTERN 
 TEXT      sort [-r -n -u -f -s -h] [-k N[,M]] [-t C]   uniq [-c -d -u -i]   cut -d C -f LIST | -c LIST [-s]
           tr [-d -s -c] SET1 [SET2]   xargs [-n N | -I R] [-0] [-r] CMD...   basename dirname tee
 REPO      refs [PREFIX]                list branches/tags (HEAD, refs/heads/, refs/tags/ by default)
-          log [-n N] [--oneline] [--decorate] [REV]  history of the revision (no path filter)
+          log [-n N] [--oneline] [--decorate|--no-decorate] [REV]  history of the revision (no path filter)
           git log | git show REV:PATH | git ls-tree [-r -d --name-only] REV [PATH] | git rev-parse [REV]
           pull [-f] PATH [DEST]        copy a file/dir to the real disk (see 'help pull')
 SHELL     pipes, && || ; $(...), for/while/if, globs (src/*.go), redirect to /dev/null, cd, pwd, echo,

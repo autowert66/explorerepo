@@ -95,13 +95,19 @@ func logCmd(ctx context.Context, env *Env, args []string) int {
 		return ExitFail
 	}
 	// Ref decorations follow git's log.decorate=auto: shown at a human
-	// terminal, off for pipes and agents. --decorate / --no-decorate force it.
+	// terminal, off for pipes and agents. --decorate / --no-decorate force it;
+	// like git, the last one on the command line wins.
 	decorate := env.Human
-	if p.Has("decorate") {
-		decorate = true
-	}
-	if p.Has("no-decorate") {
-		decorate = false
+	for _, a := range args {
+		if a == "--" {
+			break
+		}
+		switch a {
+		case "--decorate":
+			decorate = true
+		case "--no-decorate":
+			decorate = false
+		}
 	}
 	var dec map[object.OID][]deco
 	head := ""
@@ -233,7 +239,7 @@ func (e *Env) decorate(ds []deco, head string) string {
 	return b.String()
 }
 
-const gitUsage = "only these git subcommands are available: log [-n N] [--oneline] [--decorate], show REV:PATH, ls-tree [-r] [-d] [--name-only] REV [PATH], rev-parse [REV]"
+const gitUsage = "only these git subcommands are available: log [-n N] [--oneline] [--decorate|--no-decorate], show REV:PATH, ls-tree [-r] [-d] [--name-only] REV [PATH], rev-parse [REV]"
 
 func gitCmd(ctx context.Context, env *Env, args []string) int {
 	if len(args) == 0 {
