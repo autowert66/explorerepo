@@ -20,6 +20,10 @@ type Fallback struct {
 	Logf       func(format string, args ...any)
 }
 
+// maxAdvertisementBytes mirrors the protocol client's cap on the capability
+// advertisement that probe buffers.
+const maxAdvertisementBytes = 1 << 20
+
 func (f Fallback) Open(ctx context.Context) (Conn, error) {
 	conn, err := probe(ctx, f.Primary)
 	if err == nil {
@@ -110,5 +114,8 @@ func readCaps(r io.Reader) ([]byte, error) {
 			return buf, err
 		}
 		buf = append(buf, payload...)
+		if len(buf) > maxAdvertisementBytes {
+			return buf, fmt.Errorf("server sent an oversized capability advertisement (over %d bytes)", maxAdvertisementBytes)
+		}
 	}
 }
