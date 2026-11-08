@@ -968,6 +968,11 @@ func printfCmd(ctx context.Context, env *Env, args []string) int {
 	return status
 }
 
+// maxPrintfWidth bounds a field width or precision. The value can come from
+// the format string or an argument, and both padding and Go's format verbs
+// allocate it directly.
+const maxPrintfWidth = 1 << 20
+
 // printfEmit formats one conversion, pulling its argument(s) via next. It
 // returns false when a %b argument contained \c (stop all output).
 func printfEmit(env *Env, c *printfConv, next func() string, status *int) bool {
@@ -992,6 +997,11 @@ func printfEmit(env *Env, c *printfConv, next func() string, status *int) bool {
 		} else {
 			conv.prec = p
 		}
+	}
+	if conv.width > maxPrintfWidth || conv.prec > maxPrintfWidth {
+		env.Errf("printf", "field width or precision too large")
+		*status = ExitFail
+		return false
 	}
 	arg := next()
 	switch conv.verb {
