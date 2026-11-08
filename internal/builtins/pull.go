@@ -168,6 +168,10 @@ func pullCmd(ctx context.Context, env *Env, args []string) int {
 		items = []pullItem{{"", n}}
 	}
 
+	if err := checkDestAncestors(absDest); err != nil {
+		env.Errf("pull", "%v", err)
+		return ExitFail
+	}
 	parent := filepath.Dir(absDest)
 	if err := os.MkdirAll(parent, 0o755); err != nil {
 		env.Errf("pull", "%v", err)
@@ -279,6 +283,30 @@ func pullCmd(ctx context.Context, env *Env, args []string) int {
 	}
 	env.Stdout.Printf("pulled %d files (%.1f MiB) to %s\n", files, float64(total)/(1<<20), dest)
 	return status
+}
+
+// checkDestAncestors refuses a missing destination whose nearest existing
+// parent is a symlink or a non-directory. Without this, MkdirAll would follow
+// that parent and create the destination outside the requested path.
+func checkDestAncestors(target string) error {
+	dir := filepath.Dir(target)
+	for {
+		st, err := os.Lstat(dir)
+		if err == nil {
+			if st.Mode()&os.ModeSymlink != 0 || !st.IsDir() {
+				return fmt.Errorf("refusing to write through %s (not a plain directory)", dir)
+			}
+			return nil
+		}
+		if !os.IsNotExist(err) {
+			return err
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return nil
+		}
+		dir = parent
+	}
 }
 
 // checkParent refuses to write through a symlink or non-directory on the way to target.

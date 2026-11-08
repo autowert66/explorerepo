@@ -139,6 +139,24 @@ func TestPullDestinationSymlink(t *testing.T) {
 	}
 }
 
+func TestPullRefusesSymlinkedParent(t *testing.T) {
+	f := testutil.NewFixture(t)
+	tmp := t.TempDir()
+	outside := t.TempDir()
+	link := filepath.Join(tmp, "link")
+	if err := os.Symlink(outside, link); err != nil {
+		t.Skip(err)
+	}
+	dest := filepath.Join(link, "new")
+	r := runAt(t, f.Bare, "", "HEAD", "pull a/b "+filepath.ToSlash(dest))
+	if r.status == 0 {
+		t.Fatalf("pull wrote through a symlinked parent: %q", r.out)
+	}
+	if ents, _ := os.ReadDir(outside); len(ents) != 0 {
+		t.Fatalf("wrote through symlinked parent: %v", ents)
+	}
+}
+
 func TestPullUnicodeNormalizationCollision(t *testing.T) {
 	bare := testutil.NewUnicodeCollision(t)
 	probe := t.TempDir()
