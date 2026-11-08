@@ -305,6 +305,32 @@ func TestBadComponent(t *testing.T) {
 	}
 }
 
+func TestBadComponentWindows(t *testing.T) {
+	for _, c := range []string{
+		`a\b`, "a:b", "CON", "con.txt", "NUL", "COM1", "LPT9", "trailing.", "trailing ",
+	} {
+		if badComponentFor(c, true) == nil {
+			t.Errorf("%q should be refused on Windows", c)
+		}
+	}
+	for _, c := range []string{"a", ".github", ".gitignore", "git", "a:b", `a\b`, "trailing."} {
+		if err := badComponentFor(c, false); err != nil {
+			t.Errorf("%q is a legal POSIX name: %v", c, err)
+		}
+	}
+}
+
+func TestInsideDestWindows(t *testing.T) {
+	for _, target := range []string{`C:\Windows`, `C:/Windows`, `\\server\share`, `//server/share`} {
+		if insideDestFor("a/link", target, true) {
+			t.Errorf("insideDestFor(%q) = true on Windows", target)
+		}
+	}
+	if !insideDestFor("a/link", "b", true) || !insideDestFor("a/link", "../b", true) {
+		t.Error("relative targets inside the destination should be allowed on Windows")
+	}
+}
+
 // TestHelpStyledRoundTrip: styling only adds escapes, for every page.
 func TestHelpStyledRoundTrip(t *testing.T) {
 	on := Styler{On: true}
