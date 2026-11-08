@@ -109,9 +109,9 @@ func windowsReservedName(c string) bool {
 	if i := strings.IndexByte(base, '.'); i >= 0 {
 		base = base[:i]
 	}
-	base = strings.ToUpper(strings.TrimRight(base, " "))
+	base = strings.ToUpper(windowsSuperscript.Replace(strings.TrimRight(base, " ")))
 	switch base {
-	case "CON", "PRN", "AUX", "NUL":
+	case "CON", "PRN", "AUX", "NUL", "CONIN$", "CONOUT$":
 		return true
 	}
 	if len(base) == 4 && (base[:3] == "COM" || base[:3] == "LPT") {
@@ -120,20 +120,43 @@ func windowsReservedName(c string) bool {
 	return false
 }
 
-// windowsShortnameDotGit reports an 8.3 short name for .git, such as GIT~1.
+// windowsSuperscript maps the superscript digits Win32 folds to 1, 2 and 3
+// when it resolves a device name.
+var windowsSuperscript = strings.NewReplacer("¹", "1", "²", "2", "³", "3")
+
+// windowsShortnameDotGit reports an 8.3 short name that can resolve to .git:
+// "git~N", or the hashed "giXXXX~N" form NTFS uses after four collisions.
 func windowsShortnameDotGit(c string) bool {
 	s := strings.ToLower(c)
 	s = strings.TrimPrefix(s, ".")
-	rest, ok := strings.CutPrefix(s, "git~")
-	if !ok || rest == "" {
+	if rest, ok := strings.CutPrefix(s, "git~"); ok {
+		return allDigits(rest)
+	}
+	if len(s) >= 8 && s[0] == 'g' && s[1] == 'i' && s[6] == '~' {
+		for i := 2; i < 6; i++ {
+			if !isLowerHexDigit(s[i]) {
+				return false
+			}
+		}
+		return allDigits(s[7:])
+	}
+	return false
+}
+
+func allDigits(s string) bool {
+	if s == "" {
 		return false
 	}
-	for i := 0; i < len(rest); i++ {
-		if rest[i] < '0' || rest[i] > '9' {
+	for i := 0; i < len(s); i++ {
+		if s[i] < '0' || s[i] > '9' {
 			return false
 		}
 	}
 	return true
+}
+
+func isLowerHexDigit(c byte) bool {
+	return c >= '0' && c <= '9' || c >= 'a' && c <= 'f'
 }
 
 func caseInsensitiveFS(dir string) bool {
