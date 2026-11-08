@@ -71,6 +71,12 @@ func removeStaleSymlink(target string) error {
 }
 
 func badComponent(c string) error {
+	return badComponentFor(c, runtime.GOOS == "windows")
+}
+
+// badComponentFor applies the name rules for one host family. windows is a
+// parameter so the rules can be tested on any OS.
+func badComponentFor(c string, windows bool) error {
 	switch {
 	case c == "" || c == "." || c == "..":
 		return fmt.Errorf("refusing to write path component %q", c)
@@ -78,12 +84,79 @@ func badComponent(c string) error {
 		return fmt.Errorf("refusing to write %q entry", c)
 	case strings.ContainsAny(c, "/\x00"):
 		return fmt.Errorf("refusing to write path component %q", c)
-	case runtime.GOOS == "windows" && strings.ContainsRune(c, '\\'):
+	case windows && strings.ContainsRune(c, '\\'):
 		// A backslash is a legal POSIX filename byte but a path separator on
 		// Windows, where writing it would escape the destination.
 		return fmt.Errorf("refusing to write path component %q", c)
+	case windows && strings.ContainsRune(c, ':'):
+		// ':' opens an NTFS alternate data stream or a drive-relative name.
+		return fmt.Errorf("refusing to write path component %q", c)
+	case windows && windowsReservedName(c):
+		return fmt.Errorf("refusing to write reserved name %q", c)
+	case windows && windowsShortnameDotGit(c):
+		// On volumes with 8.3 names, git~1 can resolve to .git.
+		return fmt.Errorf("refusing to write %q entry", c)
+	case windows && (strings.HasSuffix(c, ".") || strings.HasSuffix(c, " ")):
+		// Windows strips these, so distinct entries can collide.
+		return fmt.Errorf("refusing to write path component %q", c)
 	}
 	return nil
+}
+
+// windowsReservedName reports a DOS device name, with or without an extension.
+func windowsReservedName(c string) bool {
+	base := c
+	if i := strings.IndexByte(base, '.'); i >= 0 {
+		base = base[:i]
+	}
+	base = strings.ToUpper(windowsSuperscript.Replace(strings.TrimRight(base, " ")))
+	switch base {
+	case "CON", "PRN", "AUX", "NUL", "CONIN$", "CONOUT$":
+		return true
+	}
+	if len(base) == 4 && (base[:3] == "COM" || base[:3] == "LPT") {
+		return base[3] >= '1' && base[3] <= '9'
+	}
+	return false
+}
+
+// windowsSuperscript maps the superscript digits Win32 folds to 1, 2 and 3
+// when it resolves a device name.
+var windowsSuperscript = strings.NewReplacer("¹", "1", "²", "2", "³", "3")
+
+// windowsShortnameDotGit reports an 8.3 short name that can resolve to .git:
+// "git~N", or the hashed "giXXXX~N" form NTFS uses after four collisions.
+func windowsShortnameDotGit(c string) bool {
+	s := strings.ToLower(c)
+	s = strings.TrimPrefix(s, ".")
+	if rest, ok := strings.CutPrefix(s, "git~"); ok {
+		return allDigits(rest)
+	}
+	if len(s) >= 8 && s[0] == 'g' && s[1] == 'i' && s[6] == '~' {
+		for i := 2; i < 6; i++ {
+			if !isLowerHexDigit(s[i]) {
+				return false
+			}
+		}
+		return allDigits(s[7:])
+	}
+	return false
+}
+
+func allDigits(s string) bool {
+	if s == "" {
+		return false
+	}
+	for i := 0; i < len(s); i++ {
+		if s[i] < '0' || s[i] > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+func isLowerHexDigit(c byte) bool {
+	return c >= '0' && c <= '9' || c >= 'a' && c <= 'f'
 }
 
 func caseInsensitiveFS(dir string) bool {
@@ -105,11 +178,36 @@ func caseInsensitiveFS(dir string) bool {
 
 // insideDest reports whether a symlink at rel with the given target stays within DEST.
 func insideDest(rel, target string) bool {
+	return insideDestFor(rel, target, runtime.GOOS == "windows")
+}
+
+// insideDestFor applies the containment rule for one host family. windows is a
+// parameter so the rules can be tested on any OS.
+func insideDestFor(rel, target string, windows bool) bool {
+	if windows {
+		if windowsAbsPath(target) {
+			return false
+		}
+		// A backslash is a path separator on Windows, so normalize before
+		// the containment check; otherwise "..\..\out" looks like one
+		// segment and "\Windows" does not look rooted.
+		target = strings.ReplaceAll(target, `\`, "/")
+		rel = strings.ReplaceAll(rel, `\`, "/")
+	}
 	if strings.HasPrefix(target, "/") {
 		return false
 	}
 	joined := path.Join(path.Dir(rel), target)
 	return joined != ".." && !strings.HasPrefix(joined, "../")
+}
+
+// windowsAbsPath reports a drive-qualified (C:x) or UNC (\\server) target.
+func windowsAbsPath(t string) bool {
+	if strings.HasPrefix(t, `\\`) {
+		return true
+	}
+	return len(t) >= 2 && t[1] == ':' &&
+		((t[0] >= 'a' && t[0] <= 'z') || (t[0] >= 'A' && t[0] <= 'Z'))
 }
 
 func pullCmd(ctx context.Context, env *Env, args []string) int {

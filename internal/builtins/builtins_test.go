@@ -140,6 +140,21 @@ func TestExpandSet(t *testing.T) {
 	}
 }
 
+// A set that starts with the class opener but closes immediately ("[:]") is
+// malformed. It must be rejected or treated literally, never panic.
+func TestExpandSetUnterminatedClass(t *testing.T) {
+	for _, in := range []string{"[:]", "a[:]b", "[:]x", "[:🎉🎉🎉🎉🎉🎉🎉🎉:]", "[:ä:]"} {
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					t.Errorf("expandSet(%q) panicked: %v", in, r)
+				}
+			}()
+			_, _ = expandSet(in)
+		}()
+	}
+}
+
 func TestParseListAndKey(t *testing.T) {
 	rs, err := parseList("1,3-4,6-")
 	if err != nil {
@@ -248,6 +263,28 @@ func TestPrintf(t *testing.T) {
 	}
 }
 
+func TestPrintfWidthLimit(t *testing.T) {
+	for _, args := range [][]string{
+		{"%2097153s\n", "x"},
+		{"%*s\n", "2097153", "x"},
+		{"%2097153d\n", "1"},
+	} {
+		var out, errb bytes.Buffer
+		env := &Env{Stdin: strings.NewReader(""), Stdout: NewOut(&out), Stderr: &errb, Cfg: &Config{}}
+		code := printfCmd(context.Background(), env, args)
+		env.Stdout.Flush()
+		if code == 0 {
+			t.Errorf("printf %v accepted an oversized field width", args)
+		}
+		if !strings.Contains(errb.String(), "too large") {
+			t.Errorf("printf %v stderr = %q", args, errb.String())
+		}
+		if out.Len() > 64 {
+			t.Errorf("printf %v wrote %d bytes before rejecting the width", args, out.Len())
+		}
+	}
+}
+
 func TestBadComponent(t *testing.T) {
 	for _, c := range []string{"", ".", "..", ".git", ".GIT", ".Git", "a/b", "a\x00b"} {
 		if badComponent(c) == nil {
@@ -265,6 +302,37 @@ func TestBadComponent(t *testing.T) {
 		if err := badComponent(c); err != nil {
 			t.Errorf("%q: %v", c, err)
 		}
+	}
+}
+
+func TestBadComponentWindows(t *testing.T) {
+	for _, c := range []string{
+		`a\b`, "a:b", "CON", "con.txt", "NUL", "COM1", "LPT9", "trailing.", "trailing ",
+		"GIT~1", ".git~1", "git~2", "COM¹", "LPT³", "CONIN$", "CONOUT$",
+		"GI7E2A~1", "giabcd~1",
+	} {
+		if badComponentFor(c, true) == nil {
+			t.Errorf("%q should be refused on Windows", c)
+		}
+	}
+	for _, c := range []string{"a", ".github", ".gitignore", "git", "a:b", `a\b`, "trailing."} {
+		if err := badComponentFor(c, false); err != nil {
+			t.Errorf("%q is a legal POSIX name: %v", c, err)
+		}
+	}
+}
+
+func TestInsideDestWindows(t *testing.T) {
+	for _, target := range []string{
+		`C:\Windows`, `C:/Windows`, `\\server\share`, `//server/share`,
+		`\Windows\System32`, `..\..\outside`, `sub\..\..\..\outside`,
+	} {
+		if insideDestFor("a/link", target, true) {
+			t.Errorf("insideDestFor(%q) = true on Windows", target)
+		}
+	}
+	if !insideDestFor("a/link", "b", true) || !insideDestFor("a/link", "../b", true) {
+		t.Error("relative targets inside the destination should be allowed on Windows")
 	}
 }
 

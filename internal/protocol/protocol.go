@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"strconv"
 	"strings"
 	"sync"
@@ -34,6 +35,48 @@ type Ref struct {
 
 // ErrBudget is returned when a fetch exceeds its byte budget.
 var ErrBudget = errors.New("fetch budget exceeded")
+
+const (
+	// maxAdvertisementBytes bounds the v2 capability advertisement. The HTTP
+	// transport reads at most this much from info/refs as well.
+	maxAdvertisementBytes = 1 << 20
+	// maxListBytes bounds the bytes of a ref listing or object-info response.
+	maxListBytes = 8 << 20
+	// maxDecompressFactor bounds how far the decompressed side may exceed the
+	// compressed fetch budget. Source and text compress a few times over; this
+	// leaves headroom for a legitimate near-budget fetch while still bounding
+	// a decompression bomb.
+	maxDecompressFactor = 4
+	// minDecompressed keeps a small --max-fetch from rejecting ordinary objects.
+	minDecompressed = 64 << 20
+)
+
+// decompressedLimit is the largest decompressed size a fetch may retain for a
+// compressed budget. It is a separate ceiling from MaxBytes: the wire budget
+// counts compressed bytes, so a highly compressible but legitimate object must
+// not be rejected at the compressed budget.
+func decompressedLimit(compressed int64) int64 {
+	if compressed <= 0 {
+		return 0
+	}
+	if compressed > math.MaxInt64/maxDecompressFactor {
+		return math.MaxInt64
+	}
+	limit := compressed * maxDecompressFactor
+	if limit < minDecompressed {
+		limit = minDecompressed
+	}
+	return limit
+}
+
+// budgetErr classifies a pack size-limit failure as a budget error, so callers
+// report it like any other exhausted fetch budget instead of redialing.
+func budgetErr(err error) error {
+	if errors.Is(err, pack.ErrLimit) {
+		return fmt.Errorf("%w: %w", ErrBudget, err)
+	}
+	return err
+}
 
 type Client struct {
 	conn   transport.Conn
@@ -111,6 +154,7 @@ func (c *Client) readCaps(ctx context.Context) error {
 			"with ssh, check that a ControlMaster is not dropping GIT_PROTOCOL): %.60q", first)
 	}
 	c.Caps = Caps{Raw: map[string]string{}, Fetch: map[string]bool{}}
+	total := len(p) + 4
 	for {
 		k, p, err := c.pr.ReadPkt()
 		if err != nil {
@@ -118,6 +162,10 @@ func (c *Client) readCaps(ctx context.Context) error {
 		}
 		if k == pktline.Flush {
 			break
+		}
+		total += len(p) + 4
+		if total > maxAdvertisementBytes {
+			return fmt.Errorf("server sent an oversized capability advertisement (over %d bytes)", maxAdvertisementBytes)
 		}
 		if k != pktline.Data {
 			continue
@@ -191,6 +239,7 @@ func (c *Client) LsRefs(ctx context.Context, prefixes []string) ([]Ref, error) {
 		return nil, c.wrapErr(err)
 	}
 	var refs []Ref
+	total := 0
 	for {
 		k, p, err := c.pr.ReadPkt()
 		if err != nil {
@@ -198,6 +247,10 @@ func (c *Client) LsRefs(ctx context.Context, prefixes []string) ([]Ref, error) {
 		}
 		if k == pktline.Flush {
 			return refs, nil
+		}
+		total += len(p) + 4
+		if total > maxListBytes {
+			return nil, fmt.Errorf("server sent an oversized ref listing (over %d bytes)", maxListBytes)
 		}
 		if k != pktline.Data {
 			continue
@@ -267,15 +320,25 @@ func (c *Client) Fetch(ctx context.Context, req FetchReq, sink func(pack.Raw) er
 	}
 
 	var (
-		pw       *io.PipeWriter
-		parseErr = make(chan error, 1)
-		section  string
+		pw        *io.PipeWriter
+		parseErr  = make(chan error, 1)
+		section   string
+		ctrlBytes int
 	)
 	startParser := func() {
 		pr, w := io.Pipe()
 		pw = w
+		popt := pack.Options{Base: req.Base}
+		if req.MaxBytes > 0 {
+			// The byte budget counts compressed pack bytes; cap the
+			// decompressed side separately so a bomb cannot expand past it
+			// while a legitimate near-budget fetch still fits.
+			limit := decompressedLimit(req.MaxBytes)
+			popt.MaxObjectSize = limit
+			popt.MaxTotalBytes = limit
+		}
 		go func() {
-			err := pack.Parse(pr, pack.Options{Base: req.Base}, func(r pack.Raw) error {
+			err := pack.Parse(pr, popt, func(r pack.Raw) error {
 				res.Objects++
 				return sink(r)
 			})
@@ -301,6 +364,10 @@ func (c *Client) Fetch(ctx context.Context, req FetchReq, sink func(pack.Raw) er
 			break
 		}
 		if k == pktline.Delim {
+			ctrlBytes += 4
+			if ctrlBytes > maxAdvertisementBytes {
+				return fail(errors.New("server sent an oversized fetch control section"))
+			}
 			continue
 		}
 		if section == "packfile" {
@@ -320,7 +387,7 @@ func (c *Client) Fetch(ctx context.Context, req FetchReq, sink func(pack.Raw) er
 					if perr == nil {
 						perr = err
 					}
-					return res, perr
+					return res, budgetErr(perr)
 				}
 			case 2:
 				c.logf("remote: %s", bytes.TrimSpace(p[1:]))
@@ -330,6 +397,10 @@ func (c *Client) Fetch(ctx context.Context, req FetchReq, sink func(pack.Raw) er
 				return fail(fmt.Errorf("unknown sideband channel %d", p[0]))
 			}
 			continue
+		}
+		ctrlBytes += len(p) + 4
+		if ctrlBytes > maxAdvertisementBytes {
+			return fail(errors.New("server sent an oversized fetch control section"))
 		}
 		line := strings.TrimRight(string(p), "\n")
 		if strings.HasPrefix(line, "ERR ") {
@@ -349,7 +420,7 @@ func (c *Client) Fetch(ctx context.Context, req FetchReq, sink func(pack.Raw) er
 	pw.Close()
 	if err := <-parseErr; err != nil {
 		c.broken.Store(true)
-		return res, err
+		return res, budgetErr(err)
 	}
 	c.logf("fetched %d objects, %d pack bytes", res.Objects, res.PackBytes)
 	return res, nil
@@ -374,6 +445,7 @@ func (c *Client) ObjectInfo(ctx context.Context, oids []object.OID) (map[object.
 		return nil, c.wrapErr(err)
 	}
 	out := map[object.OID]int64{}
+	total := 0
 	for {
 		k, p, err := c.pr.ReadPkt()
 		if err != nil {
@@ -381,6 +453,10 @@ func (c *Client) ObjectInfo(ctx context.Context, oids []object.OID) (map[object.
 		}
 		if k == pktline.Flush {
 			return out, nil
+		}
+		total += len(p) + 4
+		if total > maxListBytes {
+			return nil, fmt.Errorf("server sent an oversized object-info response (over %d bytes)", maxListBytes)
 		}
 		if k != pktline.Data {
 			continue

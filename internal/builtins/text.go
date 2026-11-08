@@ -376,8 +376,16 @@ func expandSet(s string) ([]rune, error) {
 	for i := 0; i < len(rs); i++ {
 		c := rs[i]
 		if c == '[' && i+1 < len(rs) && rs[i+1] == ':' {
-			end := strings.Index(string(rs[i:]), ":]")
-			if end > 0 {
+			// A class is "[:name:]". Scan runes rather than using a byte
+			// offset, so a multibyte name cannot slice past the slice.
+			end := -1
+			for j := i + 2; j+1 < len(rs); j++ {
+				if rs[j] == ':' && rs[j+1] == ']' {
+					end = j - i
+					break
+				}
+			}
+			if end > 2 {
 				name := string(rs[i+2 : i+end])
 				fn, ok := trClasses[name]
 				if !ok {
@@ -965,6 +973,11 @@ func printfCmd(ctx context.Context, env *Env, args []string) int {
 	return status
 }
 
+// maxPrintfWidth bounds a field width or precision. The value can come from
+// the format string or an argument, and both padding and Go's format verbs
+// allocate it directly.
+const maxPrintfWidth = 1 << 20
+
 // printfEmit formats one conversion, pulling its argument(s) via next. It
 // returns false when a %b argument contained \c (stop all output).
 func printfEmit(env *Env, c *printfConv, next func() string, status *int) bool {
@@ -989,6 +1002,11 @@ func printfEmit(env *Env, c *printfConv, next func() string, status *int) bool {
 		} else {
 			conv.prec = p
 		}
+	}
+	if conv.width > maxPrintfWidth || conv.prec > maxPrintfWidth {
+		env.Errf("printf", "field width or precision too large")
+		*status = ExitFail
+		return false
 	}
 	arg := next()
 	switch conv.verb {

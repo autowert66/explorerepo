@@ -29,7 +29,11 @@ import (
 	"github.com/autowert66/explorerepo/internal/vfs"
 )
 
-const exitSetup = 128
+const (
+	exitSetup       = 128
+	exitInternal    = 70
+	defaultMaxFetch = 256 << 20
+)
 
 // byteSize is a flag.Value accepting K/M/G suffixes.
 type byteSize int64
@@ -54,7 +58,16 @@ func (b *byteSize) Set(s string) error {
 
 func main() { os.Exit(run(os.Args[1:], os.Stdin, os.Stdout, os.Stderr)) }
 
-func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
+func run(args []string, stdin io.Reader, stdout, stderr io.Writer) (status int) {
+	// A panic on hostile repository data must become an error, not a crash.
+	// Builtins are guarded individually; this catches the setup and network
+	// paths that run before the shell.
+	defer func() {
+		if v := recover(); v != nil {
+			fmt.Fprintf(stderr, "explorerepo: internal error: %v\n", v)
+			status = exitInternal
+		}
+	}()
 	fl := flag.NewFlagSet("explorerepo", flag.ContinueOnError)
 	fl.SetOutput(stderr)
 	fl.Usage = func() {} // printed after Parse, to stdout for --help
@@ -68,7 +81,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		forceHTTPS = fl.Bool("https", false, "use anonymous HTTPS instead of ssh")
 		noHTTPS    = fl.Bool("no-https", false, "never fall back to HTTPS when ssh fails")
 		maxOutput  = byteSize(200 << 10)
-		maxFetch   = byteSize(256 << 20)
+		maxFetch   = byteSize(defaultMaxFetch)
 		maxFiles   = fl.Int("max-files", 20000, "max files per content scan")
 		timeout    = fl.Duration("timeout", 60*time.Second, "overall timeout")
 		version    = fl.Bool("version", false, "print the version")
@@ -168,7 +181,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	defer cancel()
 
 	if len(rest) > 0 && rest[0] == "debug" {
-		return debugCmd(ctx, tr, rest[1:], stdout, stderr)
+		return debugCmd(ctx, tr, rest[1:], stdout, stderr, int64(maxFetch))
 	}
 
 	r := repo.New(repo.Config{
@@ -293,10 +306,13 @@ func fallbackNote(spec *repospec.Spec, noCache bool, w io.Writer, s color.Styler
 	}
 }
 
-func debugCmd(ctx context.Context, tr transport.Transport, args []string, stdout, stderr io.Writer) int {
+func debugCmd(ctx context.Context, tr transport.Transport, args []string, stdout, stderr io.Writer, maxFetch int64) int {
 	if len(args) == 0 {
 		fmt.Fprintln(stderr, "usage: explorerepo --repo SPEC debug lsrefs [PREFIX...] | fetch OID [--filter F] [--deepen N]")
 		return exitSetup
+	}
+	if maxFetch <= 0 {
+		maxFetch = defaultMaxFetch
 	}
 	c, err := protocol.Dial(ctx, tr)
 	if err != nil {
@@ -351,7 +367,7 @@ func debugCmd(ctx context.Context, tr transport.Transport, args []string, stdout
 			}
 			wants = append(wants, o)
 		}
-		res, err := c.Fetch(ctx, protocol.FetchReq{Wants: wants, Filter: *filter, Deepen: *deepen}, func(o pack.Raw) error {
+		res, err := c.Fetch(ctx, protocol.FetchReq{Wants: wants, Filter: *filter, Deepen: *deepen, MaxBytes: maxFetch}, func(o pack.Raw) error {
 			fmt.Fprintf(stdout, "%s %s %d\n", o.OID, o.Type, len(o.Data))
 			return nil
 		})

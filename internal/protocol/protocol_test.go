@@ -1,11 +1,18 @@
 package protocol
 
 import (
+	"bytes"
 	"context"
+	"errors"
+	"fmt"
+	"math"
+	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/autowert66/explorerepo/internal/object"
 	"github.com/autowert66/explorerepo/internal/pack"
+	"github.com/autowert66/explorerepo/internal/pktline"
 	"github.com/autowert66/explorerepo/internal/testutil"
 	"github.com/autowert66/explorerepo/internal/transport"
 )
@@ -58,11 +65,106 @@ func TestCapsAndLsRefs(t *testing.T) {
 	}
 }
 
+// The capability advertisement is server-controlled and unbounded; Dial must
+// stop reading once it passes a sane cap instead of consuming the whole stream.
+type capsConn struct {
+	r *bytes.Reader
+	n int
+}
+
+func (c *capsConn) Read(p []byte) (int, error) {
+	n, err := c.r.Read(p)
+	c.n += n
+	return n, err
+}
+func (c *capsConn) Write(p []byte) (int, error) { return len(p), nil }
+func (c *capsConn) Close() error                { return nil }
+func (c *capsConn) CloseWrite() error           { return nil }
+func (c *capsConn) Stderr() string              { return "" }
+
+type capsTransport struct{ conn *capsConn }
+
+func (t capsTransport) Open(context.Context) (transport.Conn, error) { return t.conn, nil }
+
+func TestOversizedCapabilityAdvertisement(t *testing.T) {
+	var buf bytes.Buffer
+	w := pktline.NewWriter(&buf)
+	if err := w.Line("version 2"); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 40_000; i++ {
+		if err := w.Line("k" + strconv.Itoa(i) + "=" + strings.Repeat("x", 100)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	_ = w.Flush()
+
+	conn := &capsConn{r: bytes.NewReader(buf.Bytes())}
+	_, err := Dial(context.Background(), capsTransport{conn})
+	if err == nil || !strings.Contains(err.Error(), "oversized") {
+		t.Fatalf("err = %v, want an oversized-advertisement error", err)
+	}
+	if conn.n > 2<<20 {
+		t.Fatalf("read %d bytes of capability advertisement", conn.n)
+	}
+}
+
+// Empty packets have no payload but still cost a packet header; a flood of
+// them must not keep the reader looping.
+func TestDelimFloodInAdvertisement(t *testing.T) {
+	var buf bytes.Buffer
+	w := pktline.NewWriter(&buf)
+	if err := w.Line("version 2"); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 300_000; i++ {
+		if err := w.Delim(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	_ = w.Flush()
+
+	conn := &capsConn{r: bytes.NewReader(buf.Bytes())}
+	_, err := Dial(context.Background(), capsTransport{conn})
+	if err == nil || !strings.Contains(err.Error(), "oversized") {
+		t.Fatalf("err = %v, want an oversized-advertisement error", err)
+	}
+}
+
+// The decompressed ceiling is separate from the compressed budget, so a
+// legitimate near-budget fetch is not rejected at the wire size.
+func TestDecompressedLimit(t *testing.T) {
+	for _, tc := range []struct{ compressed, want int64 }{
+		{0, 0},
+		{1 << 20, minDecompressed},
+		{32 << 20, 128 << 20},
+		{256 << 20, 1 << 30},
+		{math.MaxInt64, math.MaxInt64},
+	} {
+		if got := decompressedLimit(tc.compressed); got != tc.want {
+			t.Errorf("decompressedLimit(%d) = %d, want %d", tc.compressed, got, tc.want)
+		}
+	}
+}
+
+// A pack limit error must read as a budget error, so the caller reports it
+// instead of redialing the session.
+func TestBudgetErr(t *testing.T) {
+	limit := fmt.Errorf("%w: too big", pack.ErrLimit)
+	got := budgetErr(limit)
+	if !errors.Is(got, ErrBudget) || !errors.Is(got, pack.ErrLimit) {
+		t.Fatalf("budgetErr(%v) = %v, want ErrBudget and ErrLimit", limit, got)
+	}
+	plain := errors.New("boom")
+	if budgetErr(plain) != plain {
+		t.Fatal("a non-limit error should pass through unchanged")
+	}
+}
+
 func TestFetchShapes(t *testing.T) {
 	f := testutil.NewFixture(t)
 	c := dial(t, f) // one session for all requests (probe 6)
 
-	// commit + deepen 1 + tree:0 => the commit only (tree:1 is rejected by GitHub)
 	var commitData []byte
 	got := map[object.OID]object.Type{}
 	_, err := c.Fetch(context.Background(), FetchReq{Wants: []object.OID{f.Commit2}, Deepen: 1, Filter: "tree:0"},

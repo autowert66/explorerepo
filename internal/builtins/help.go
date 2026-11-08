@@ -141,7 +141,8 @@ shell over that virtual tree. Nothing on disk is written except the cache and 'p
 Cache    ` + cache + `
          (EXPLOREREPO_CACHE overrides; delete it to reset; refs are cached for 10 minutes)
 Exit     the script's status; 2 usage error or missing --repo; 124 timeout;
-         127 unknown command; 128 setup error (auth, repo not found, bad --rev)
+         127 unknown command; 128 setup error (auth, repo not found, bad --rev);
+         70 internal error
 Env      EXPLOREREPO_REPO default --repo, EXPLOREREPO_DEBUG=1 log requests to stderr,
          EXPLOREREPO_QUIET silence the HTTPS-fallback note, NO_COLOR disable color
 `
