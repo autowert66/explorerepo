@@ -55,7 +55,9 @@ n = len(sel(TASKS[0]["id"], "with"))
 days = sorted({datetime.fromtimestamp(r["start_ms"] / 1000, timezone.utc).date().isoformat() for r in RUNS})
 models = ", ".join(f"`{m}`" for m in sorted({r["model"] for r in RUNS}))
 versions = ", ".join(sorted({r["opencode"] for r in RUNS}))
-w("# explorerepo benchmark\n")
+HARD = os.environ.get("TASKS_FILE", "tasks.json") != "tasks.json"
+ENV = "TASKS_FILE=tasks-hard.json RUNS_DIR=runs-hard RESULTS=results-hard.json " if HARD else ""
+w("# explorerepo benchmark: harder questions on large repositories\n" if HARD else "# explorerepo benchmark\n")
 w(f"Measured on {' to '.join(dict.fromkeys([days[0], days[-1]]))}: {versions} headless (`opencode run --standalone --auto --format json`) "
   f"with {models}, {len(TASKS)} tasks × 2 variants × {n} runs = {len(RUNS)} runs, "
   "each in a fresh Docker container (Debian, git, curl, ripgrep, python3). Both variants have the same tools, including "
@@ -66,8 +68,8 @@ w(f"Measured on {' to '.join(dict.fromkeys([days[0], days[-1]]))}: {versions} he
   "all of its own network fetches (later calls in a run reuse what earlier ones fetched, as in normal use). "
   "Harness: [`bench/`](../bench).\n")
 
-w("Reproduce: `bench/setup.sh` (builds the image, exports only the opencode-go credential), `REPS=3 PAR=4 "
-  "python3 bench/run.py`, `python3 bench/analyze.py`, `python3 bench/report.py > docs/BENCHMARK.md`. Each container "
+w(f"Reproduce: `bench/setup.sh` (builds the image, exports only the opencode-go credential), `{ENV}REPS=3 PAR=4 "
+  f"python3 bench/run.py`, `{ENV}python3 bench/analyze.py`, `{ENV}python3 bench/report.py > docs/BENCHMARK{'-HARD' if HARD else ''}.md`. Each container "
   "imports the credential and pre-answers opencode's one-time web search prompt (it otherwise cancels in headless "
   "runs) by setting `websearch:provider` to `\"random\"` in the `kv` table of `opencode.db`; see `bench/entry.sh`.\n")
 w("## Overall\n")
