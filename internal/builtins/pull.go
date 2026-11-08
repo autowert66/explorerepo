@@ -55,6 +55,21 @@ func remember(seen map[string][]pulledFile, rel, target string) {
 	}
 }
 
+// removeStaleSymlink unlinks a symlink already at target before writing the
+// entry. os.WriteFile follows such a link, so with -f a stale link (left by the
+// user or an earlier pull of a different tree) would send the write outside
+// DEST.
+func removeStaleSymlink(target string) error {
+	st, err := os.Lstat(target)
+	if err != nil || st.Mode()&os.ModeSymlink == 0 {
+		return nil
+	}
+	if err := os.Remove(target); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return nil
+}
+
 func badComponent(c string) error {
 	switch {
 	case c == "" || c == "." || c == "..":
@@ -258,6 +273,10 @@ func pullCmd(ctx context.Context, env *Env, args []string) int {
 					}
 				} else {
 					fmt.Fprintf(env.Stderr, "pull: warning: symlink %s -> %s points outside the destination; wrote a regular file containing the target\n", it.rel, ts)
+					if err := removeStaleSymlink(target); err != nil {
+						env.Errf("pull", "%v", err)
+						return ExitFail
+					}
 					if err := os.WriteFile(target, tb, 0o644); err != nil {
 						env.Errf("pull", "%v", err)
 						return ExitFail
@@ -273,6 +292,10 @@ func pullCmd(ctx context.Context, env *Env, args []string) int {
 				mode := os.FileMode(0o644)
 				if it.node.IsExec() {
 					mode = 0o755
+				}
+				if err := removeStaleSymlink(target); err != nil {
+					env.Errf("pull", "%v", err)
+					return ExitFail
 				}
 				if err := os.WriteFile(target, data, mode); err != nil {
 					env.Errf("pull", "%v", err)

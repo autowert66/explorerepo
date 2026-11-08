@@ -232,6 +232,54 @@ func TestPullDirectSubmodule(t *testing.T) {
 	}
 }
 
+func TestPullForceDoesNotWriteThroughEntrySymlink(t *testing.T) {
+	f := testutil.NewFixture(t)
+	cases := []struct {
+		name     string
+		dangling bool
+	}{
+		{"existing target", false},
+		{"dangling link", true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			tmp := t.TempDir()
+			outsideDir := filepath.Join(tmp, "outside")
+			if err := os.MkdirAll(outsideDir, 0o755); err != nil {
+				t.Fatal(err)
+			}
+			outside := filepath.Join(outsideDir, "victim.txt")
+			if !tc.dangling {
+				if err := os.WriteFile(outside, []byte("ORIGINAL\n"), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			dest := filepath.Join(tmp, "b")
+			if err := os.MkdirAll(dest, 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Symlink(outside, filepath.Join(dest, "b.txt")); err != nil {
+				t.Skip(err)
+			}
+
+			r := runAt(t, f.Bare, "", "HEAD", "pull -f a/b "+filepath.ToSlash(dest))
+			if r.status != 0 {
+				t.Fatalf("status %d, err %q", r.status, r.err)
+			}
+			if b, err := os.ReadFile(outside); err == nil && (tc.dangling || string(b) != "ORIGINAL\n") {
+				t.Fatalf("wrote through the entry symlink: %q", b)
+			}
+			st, err := os.Lstat(filepath.Join(dest, "b.txt"))
+			if err != nil || st.Mode()&os.ModeSymlink != 0 {
+				t.Fatalf("b.txt is still a symlink: %v %v", st, err)
+			}
+			if b, err := os.ReadFile(filepath.Join(dest, "b.txt")); err != nil || string(b) != "bravo\n" {
+				t.Fatalf("b.txt = %q, %v", b, err)
+			}
+		})
+	}
+}
+
 func TestPullForceOverwritesExistingTree(t *testing.T) {
 	f := testutil.NewFixture(t)
 	dest := filepath.Join(t.TempDir(), "b")
