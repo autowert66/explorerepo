@@ -41,8 +41,7 @@ explorerepo --repo torvalds/linux pull drivers/gpu/drm/i915 ./i915
   for a public repository; explorerepo falls back to anonymous HTTPS when ssh is unavailable.
 - For local repositories and the test suite: `git`.
 
-Built and tested on macOS (arm64) with Go 1.27.3 and git 2.56.0. The protocol probes recorded in
-`docs/PROBES.md` were run against GitHub and local git 2.56.0.
+The protocol probes recorded in `docs/PROBES.md` were run against GitHub and local git 2.56.0.
 
 ## Install
 
