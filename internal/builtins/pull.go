@@ -71,6 +71,12 @@ func removeStaleSymlink(target string) error {
 }
 
 func badComponent(c string) error {
+	return badComponentFor(c, runtime.GOOS == "windows")
+}
+
+// badComponentFor applies the name rules for one host family. windows is a
+// parameter so the rules can be tested on any OS.
+func badComponentFor(c string, windows bool) error {
 	switch {
 	case c == "" || c == "." || c == "..":
 		return fmt.Errorf("refusing to write path component %q", c)
@@ -78,12 +84,37 @@ func badComponent(c string) error {
 		return fmt.Errorf("refusing to write %q entry", c)
 	case strings.ContainsAny(c, "/\x00"):
 		return fmt.Errorf("refusing to write path component %q", c)
-	case runtime.GOOS == "windows" && strings.ContainsRune(c, '\\'):
+	case windows && strings.ContainsRune(c, '\\'):
 		// A backslash is a legal POSIX filename byte but a path separator on
 		// Windows, where writing it would escape the destination.
 		return fmt.Errorf("refusing to write path component %q", c)
+	case windows && strings.ContainsRune(c, ':'):
+		// ':' opens an NTFS alternate data stream or a drive-relative name.
+		return fmt.Errorf("refusing to write path component %q", c)
+	case windows && windowsReservedName(c):
+		return fmt.Errorf("refusing to write reserved name %q", c)
+	case windows && (strings.HasSuffix(c, ".") || strings.HasSuffix(c, " ")):
+		// Windows strips these, so distinct entries can collide.
+		return fmt.Errorf("refusing to write path component %q", c)
 	}
 	return nil
+}
+
+// windowsReservedName reports a DOS device name, with or without an extension.
+func windowsReservedName(c string) bool {
+	base := c
+	if i := strings.IndexByte(base, '.'); i >= 0 {
+		base = base[:i]
+	}
+	base = strings.ToUpper(strings.TrimRight(base, " "))
+	switch base {
+	case "CON", "PRN", "AUX", "NUL":
+		return true
+	}
+	if len(base) == 4 && (base[:3] == "COM" || base[:3] == "LPT") {
+		return base[3] >= '1' && base[3] <= '9'
+	}
+	return false
 }
 
 func caseInsensitiveFS(dir string) bool {
@@ -105,11 +136,29 @@ func caseInsensitiveFS(dir string) bool {
 
 // insideDest reports whether a symlink at rel with the given target stays within DEST.
 func insideDest(rel, target string) bool {
+	return insideDestFor(rel, target, runtime.GOOS == "windows")
+}
+
+// insideDestFor applies the containment rule for one host family. windows is a
+// parameter so the rules can be tested on any OS.
+func insideDestFor(rel, target string, windows bool) bool {
 	if strings.HasPrefix(target, "/") {
+		return false
+	}
+	if windows && windowsAbsPath(target) {
 		return false
 	}
 	joined := path.Join(path.Dir(rel), target)
 	return joined != ".." && !strings.HasPrefix(joined, "../")
+}
+
+// windowsAbsPath reports a drive-qualified (C:x) or UNC (\\server) target.
+func windowsAbsPath(t string) bool {
+	if strings.HasPrefix(t, `\\`) {
+		return true
+	}
+	return len(t) >= 2 && t[1] == ':' &&
+		((t[0] >= 'a' && t[0] <= 'z') || (t[0] >= 'A' && t[0] <= 'Z'))
 }
 
 func pullCmd(ctx context.Context, env *Env, args []string) int {
