@@ -105,6 +105,24 @@ func (r *runner) human(w io.Writer) bool {
 	return r.opt.Human && w == r.top
 }
 
+// runBuiltin invokes one builtin behind a panic boundary. Input from a remote
+// repository must turn into an error status, never terminate the process.
+func runBuiltin(ctx context.Context, env *builtins.Env, fn builtins.Cmd, args []string) (status int) {
+	name := "builtin"
+	if len(args) > 0 {
+		name = args[0]
+	}
+	defer func() {
+		if v := recover(); v != nil {
+			if env != nil && env.Stderr != nil {
+				fmt.Fprintf(env.Stderr, "explorerepo: %s: internal error: %v\n", name, v)
+			}
+			status = builtins.ExitFail
+		}
+	}()
+	return fn(ctx, env, args[1:])
+}
+
 // exec runs a builtin with the given stdio and returns its status.
 func (r *runner) exec(ctx context.Context, dir string, args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	if handled, status := probe(args, stdout, stderr); handled {
@@ -137,7 +155,7 @@ func (r *runner) exec(ctx context.Context, dir string, args []string, stdin io.R
 			return r.exec(ctx, dir, a, in, o, stderr)
 		},
 	}
-	status := ent.Fn(ctx, env, args[1:])
+	status := runBuiltin(ctx, env, ent.Fn, args)
 	out.Flush()
 	if err := out.Err(); err != nil && status == 0 {
 		status = builtins.ExitSigPipe

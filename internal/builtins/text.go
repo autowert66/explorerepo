@@ -376,8 +376,11 @@ func expandSet(s string) ([]rune, error) {
 	for i := 0; i < len(rs); i++ {
 		c := rs[i]
 		if c == '[' && i+1 < len(rs) && rs[i+1] == ':' {
+			// A class is "[:name:]", so the closing ":]" must sit at least
+			// past the opener. "[:]" and "[:x" are not classes: fall through
+			// and let the bytes be matched literally.
 			end := strings.Index(string(rs[i:]), ":]")
-			if end > 0 {
+			if end > 2 {
 				name := string(rs[i+2 : i+end])
 				fn, ok := trClasses[name]
 				if !ok {
